@@ -1,4 +1,4 @@
-# Design System Inspired by NENTRA
+# Nentra Design System
 ### ([A] Intro × [B] Pinned walkthrough × [C] Landing hero × [D] Footer × [E] Section stacks × [M] Bento & spotlight grids, re-themed)
 
 **Sourcing key** (attachments mapped in upload order; tell me if any are swapped)
@@ -9,6 +9,13 @@
 - **[E]** video 3, a section-stack recording: how other sections animate (stacked scenes, pinned beats, transitions).
 - **[M]** the bento grid and feature spotlight grid from the earlier design, rebuilt in this theme.
 
+**Brand truth**
+- Nentra is AI order operations for online merchants. Public descriptor: "AI order operations for online merchants."
+- Brand line: "There is always a next move."
+- Website copy and factual product claims come from `docs/Nentra product language, UX and copy.md`.
+- No invented stats, customers, testimonials or integrations.
+- The only brand marks are the official PNGs in `public/brand/nentra/`: the lockup (`nentra-lockup.png`) and the N symbol (`nentra-mark.png`).
+
 **Locked fonts:** Georama and Satoshi, and Inter appears nowhere in this system. One display serif (Instrument Serif) is my pick for the accent words in [D]'s headline pattern; swap candidates are in Section 3.
 
 **Not adopted:** the reference sites' names, logos, copy and screens. Every product screen, mark and line of copy is yours.
@@ -17,14 +24,14 @@
 
 ## 1. Visual Theme & Atmosphere
 
-Light falling into a dark room. The page opens on warm bokeh, vertical beams of light and one dark glass orb that hangs in the beam. The orb dissolves into the product name, and the room turns into a grainy ember field with the name melting and re-forming at its center. From there the story is told by a phone pinned at the center of the screen, lit from below by a horizon glow, while the copy and a numbered index change around it. Everything is warm: ember, amber, honey and cream on near-black. The product is about financial rhythm, so every motion is counted in beats.
+Light falling into a dark room. The page opens on warm bokeh, vertical beams of light and one dark glass orb that hangs in the beam. The orb resolves into the official Nentra N symbol, then the official lockup, and the room turns into a grainy ember field with the lockup melting and re-forming at its center. From there the story is told by a phone pinned at the center of the screen, lit from below by a horizon glow, while the copy and a numbered index change around it. Everything is warm: ember, amber, honey and cream on near-black. The product works the next move on a stuck order, so motion moves forward in measured beats: something happens, Nentra works it, the next step appears.
 
 **Key Characteristics**
 - Near-black warm ground with amber, ember and honey glow; no cool colors [A]
-- One mark: a dark glass orb with an amber rim, a white specular dot and a falling beam [A]
-- An intro that ends with the orb dissolving into the wordmark [A][C]
-- A grainy ember field with dark blotches drifting slowly behind the wordmark [C]
-- A wordmark that melts left to right into marbled fragments and re-forms [C]
+- A dark glass orb with an amber rim, a white specular dot and a falling beam, used as a cinematic atmosphere and transition device [A]. It is not the brand mark. The brand mark is the official Nentra N symbol (supplied PNG)
+- An intro that ends with the orb resolving into the official N symbol, then the official lockup [A][C]
+- A grainy ember field with dark blotches drifting slowly behind the lockup [C]
+- A lockup that melts left to right into marbled fragments and re-forms [C]
 - A pinned phone, an index of numbered steps and a crossfading headline [B]
 - A horizon glow band at the bottom of scenes and of the footer [B][D]
 - Stacked scenes that hold and animate for a beat, then hand over to the next [E]
@@ -47,9 +54,9 @@ All hexes are estimated from the images and compressed frames.
 - **Ember** `#B5440F` · **Amber** `#F28A2E` · **Gold Glow** `#F5B561` · **Honey** `#E3C07F`
 - **Beam** `rgba(255,236,200,.16)`: vertical light bars
 
-### Semantic (financial data)
-- **Gain** `#8CCB86` · **Loss** `#E4604A`
-- Never use Amber or Ember to mean gain or loss.
+### Semantic (order status)
+- **Verified** `#8CCB86`: independently verified outcome · **Failed** `#E4604A`: failed attempt or blocked step
+- Never use Amber or Ember to mean verified or failed.
 
 ### Gradients (the only ones)
 - **Intro glow:** `radial-gradient(70% 55% at 62% 18%, rgba(245,181,97,.9), rgba(242,138,46,.55) 38%, transparent 70%)` plus `radial-gradient(60% 45% at 12% 8%, #7A2A0E, transparent 70%)`
@@ -63,17 +70,17 @@ All hexes are estimated from the images and compressed frames.
 ## 3. Typography Rules
 
 ### Font Family (locked)
-**Interface & Headlines — Satoshi** (Fontshare, free for commercial use; weights 300, 400, 500, 700, 900): wordmark fallback, headlines, body, nav, buttons, footer, the intro line.
+**Interface & Headlines: Satoshi** (Fontshare, free for commercial use; weights 300, 400, 500, 700, 900): headlines, body, nav, buttons, footer, the intro line.
 Fallback: 'General Sans', -apple-system, 'Segoe UI', sans-serif
-**Labels & Data — Georama** (Google Fonts, variable): step numerals, tags, tile labels, the corner text blocks, micro-labels.
+**Labels & Data: Georama** (Google Fonts, variable): step numerals, tags, tile labels, the corner text blocks, micro-labels.
 Fallback: 'Satoshi', system-ui, sans-serif
-**Accent Serif — Instrument Serif** (Google Fonts, 400 and italic): my pick for the serif accent words in headlines, following [D]. Swap candidates: Newsreader, Cormorant Garamond.
+**Accent Serif: Instrument Serif** (Google Fonts, 400 and italic): my pick for the serif accent words in headlines, following [D]. Swap candidates: Newsreader, Cormorant Garamond.
 Fallback: Georgia, serif
 
 ### Role Ownership
 | Family | Owns | Never |
 |--------|------|-------|
-| Satoshi | Wordmark fallback, headlines, body, nav, buttons, footer, intro line | Tracked micro-labels |
+| Satoshi | Headlines, body, nav, buttons, footer, intro line | Tracked micro-labels |
 | Georama | Numerals, tags, chips, tile labels, corner blocks, micro-labels | Paragraphs, headlines |
 | Instrument Serif | Up to two accent words inside an H1 or H2 | Body, UI, H3, more than two words, color |
 
@@ -81,7 +88,7 @@ Fallback: Georgia, serif
 
 | Role | Font | Size / Line | Weight | Tracking | Color |
 |------|------|-------------|--------|----------|-------|
-| Wordmark | Satoshi (or supplied logotype) | clamp(64px, 17vw, 260px) / 0.9 | 900 | -0.03em | Cream |
+| Wordmark | Official lockup PNG (never a text recreation) | clamp(64px, 17vw, 260px) / 0.9 | 900 | -0.03em | Cream |
 | Tagline [C] | Georama | 16 / 22 | 400, lowercase | +0.02em | Cream 70 |
 | Corner Block [C] | Georama | 13 / 18 | 400, lowercase | 0 | Cream 70 |
 | Intro Line [A] | Satoshi | 28 / 36 | 300 | 0 | Cream |
@@ -99,7 +106,7 @@ Fallback: Georgia, serif
 | Tile Label [M] | Georama | 22 / 26 | 700 | -0.01em | Ember Black on Cream |
 | Footer Heading [D] | Satoshi | 14 / 20 | 500 | 0 | Cream 80 |
 | Footer Link [D] | Satoshi | 13 / 20 | 400 | 0 | Cream 65 |
-| Footer Wordmark [D] | Satoshi (or supplied) | clamp(120px, 34vw, 520px) / 0.85 | 900 | -0.04em | Cream |
+| Footer Wordmark [D] | Official lockup PNG (never a text recreation) | clamp(120px, 34vw, 520px) / 0.85 | 900 | -0.04em | Cream |
 
 ### Principles
 - Satoshi sets every headline; the serif only accents up to two words, as in [D]'s "Built for *brands* that mean *business.*"
@@ -116,16 +123,18 @@ Fallback: Georgia, serif
 - **Grain:** halftone-style grain over everything (a pre-baked noise tile at 10–12%, `mix-blend-mode: overlay`)
 - **Beams:** 3 vertical bars (`80px`, Beam gradient fading downward) at about 20%, 48% and 78% of the width; two carry small falling light heads (`18–36px`, Gold Glow)
 - **Anamorphic streak:** a `1px` horizontal light line through the orb, `40vw` wide, Cream at 50%, fading at the ends
-- **Intro Line:** centered under the orb in two phrases ("Together," then the rest), set as in the hierarchy table
+- **Intro Line:** "There is always a next move.", centered under the orb, set as in the hierarchy table
 
-### Orb Mark [A]
-- **Size:** `64px` (nav `28px`, footer giant mark scaled to the wordmark's cap height)
+### Atmosphere Orb [A]
+- **Role:** a cinematic atmosphere and transition device. It is never used as the logo, and never appears in the nav, footer or favicon.
+- **Size:** `64px`
 - **Fill:** the Orb gradient; rim light at the lower left; a `4px` white specular dot at the upper left
 - **Halo:** `0 0 32px rgba(242,138,46,.55)`; breathing: scale `1 → 1.04`, halo `.55 → .8` over `4 beats`
 - **Beam:** a Beam bar above it when it hangs in the intro
 
 ### Wordmark & Melt [A][C]
-- **Wordmark:** centered, tagline below, two Corner Blocks bottom-left and bottom-right (three lines each, left- and right-aligned), per [C]'s layout
+- **Wordmark:** the official lockup PNG, centered, tagline below, two Corner Blocks bottom-left and bottom-right (three lines each, left- and right-aligned), per [C]'s layout
+- **Melt source:** the melt is applied to the official lockup artwork through SVG filters (`feTurbulence` + `feDisplacementMap` + an alpha threshold) on a masked overlay copy. The clean lockup stays underneath, and legibility recovers within about `600ms`.
 - **Melt states (from [C]):**
 
 | State | Duration | Look |
@@ -135,9 +144,9 @@ Fallback: Georgia, serif
 | Torn | holds | letters stay legible with ragged, torn edges |
 | Reform | not shown in the video | letters settle to Clean |
 
-- **Use 1:** the intro's dissolve, played in reverse: turbulence over the orb's position resolves left to right into the clean wordmark
-- **Use 2:** the same effect triggered by pointer proximity (radius about `160px`), resolving when the pointer leaves. This is inferred; the recording can't confirm whether the effect is timed or pointer-driven.
-- **Implementation:** SVG `feTurbulence` + `feDisplacementMap` + a threshold (`feComponentTransfer`), or a small WebGL shader; limit the effect to the wordmark's box (at most `1200 × 420`)
+- **Use 1 (intro):** the orb resolves into the official N symbol, then the overlay lifts and the hero lockup resolves left to right from melt to clean
+- **Use 2 (after the intro):** opt-in on pointer hover only (radius about `160px`), resolving when the pointer leaves. No perpetual glitching, no melt on touch devices and no melt under reduced motion.
+- **Implementation:** SVG `feTurbulence` + `feDisplacementMap` + an alpha threshold (`feComponentTransfer`) on the masked overlay copy of the lockup; limit the effect to the lockup's box (at most `1200 × 420`)
 
 ### Ember Field [C]
 - A field of `#B5440F` with Amber and Gold Glow highlights, and Ember Black / Olive Shadow blotches on a staggered lattice (about two blotches per `1000px`), each blotch `300–420px`, feathered
@@ -145,15 +154,15 @@ Fallback: Georgia, serif
 - Heavy grain (`12–14%`); nothing sharp except the wordmark
 
 ### Navigation [B][C]
-- **Layout:** orb mark and wordmark left; links right; outlined pill CTA far right (as [C]); in [B] the nav appears after the hero, so fade it in at the end of the intro
+- **Layout:** official Nentra lockup left; links right. Links must point to implemented sections or real destinations. No wallet, login or signup controls until those exist. In [B] the nav appears after the hero, so fade it in at the end of the intro
 - **Height:** `64px`; transparent over art; once past the hero, `rgba(13,11,7,.72)` with `backdrop-filter: blur(12px)` and a `1px` Hairline bottom edge
-- **Mobile:** mark left, menu button right
+- **Mobile:** official lockup or N symbol left, menu button right
 
 ### Buttons [B][C][D]
 **Primary (Amber):** fill `#F28A2E`, text `#0D0B07`, pill, height `48px`, padding `0 28px`, Satoshi 700 15px, optional `↗` icon (as [D]); glow `0 8px 28px rgba(242,138,46,.35)`. Hover: fill `#F5B561`, glow `.5`. Active: `scale(.98)`.
 **Outline [C]:** `1px solid rgba(246,238,220,.6)`, text Cream, pill, same size. Hover: fill `rgba(246,238,220,.10)`.
 **Cream [D]:** fill Cream, text `#0D0B07`, pill (the "Subscribe" button).
-**Nav CTA:** Amber pill, `36px` high, Satoshi 700 14px.
+**Small (nav):** any variant at `36px` high, Satoshi 700 14px. Over the ember field use Outline or Cream, since amber on ember has no separation.
 Focus ring: `2px solid #F5B561`, offset `3px`.
 
 ### Pinned Walkthrough [B] (signature scroll component)
@@ -161,7 +170,7 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 - **Phone:** dark bezel (`#15110B`, `1px` Hairline), radius `44px`, dynamic-island notch, status bar; screen on Ember Black; width about `320px`, height about `640px`
 - **Horizon band:** the Horizon band gradient along the bottom of the scene, softened with a horizontal streak texture (blur `24px`, scaleY `.3`); it drifts `±2vw` over `4 beats`
 - **Star dust:** a faint noise of stars in the top `30%` of the scene
-- **Step index:** a vertical `1px` Hairline at the left of a list of 5 rows ("01 You talk"); numerals Georama; the active row is Cream with an Amber `2px` segment on the rule; inactive rows Cream 45
+- **Step index:** a vertical `1px` Hairline at the left of a list of 5 rows (for example "01 Exception"); numerals Georama; the active row is Cream with an Amber `2px` segment on the rule; inactive rows Cream 45
 - **Step copy:** numeral in Amber, Scene Headline over two lines, sub in Cream 70
 
 **Walkthrough choreography (estimated, `5 × 100vh` runway plus `40vh` entry)**
@@ -170,10 +179,10 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 |-------|----------|
 | Entry (first `40vh`) | the phone rises from the bottom edge to the center; the horizon band glows up behind it; the nav appears |
 | Each step | the old copy fades out (`opacity → 0`, `translateY -12px`, `300ms`) while the new copy fades in from `+12px` (`500ms`, `--ease-out`); the active segment slides to the new row (`300ms`); the screen dims to `30%` then the new screen fades in, its elements staggered `120ms` |
-| Holds | within a step, a state changes after one beat: for example a button reads "Send message" and turns to "Message sent ✓" (Gain tint); a chip such as "Live" fades in after the card; an amount counts up over `900ms` |
+| Holds | within a step, a state changes after one beat: only when a persisted NG-2048 case event confirms it, for example "Approval requested" turns to "Approved" or a booking turns "Verified" (Verified tint); never animate a state the backend has not recorded |
 | Release | the phone and band hold for `20vh`, then the next section stacks over them |
 
-- Screen content per step is placeholder; you supply the five product screens.
+- Screen content per step is built from the persisted NG-2048 case events, labelled DEMO_SANDBOX. Never fabricate operational data.
 
 ### Stack Scenes [E] (other sections)
 - **Runway:** `200–260vh` pinned; inside, `3–4` beats of motion before the hand-off
@@ -205,10 +214,10 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 
 **Footer**
 - **Ground:** the Footer glow gradient, feathered at its top edge into an arc, with grain
-- **Left:** orb mark plus wordmark (about `34px` high), then a two-line descriptor in Satoshi 300 22/28 Cream 80, then four `44px` circular social buttons (`1px` Hairline Strong, icons `18px`)
+- **Left:** official lockup (about `34px` high), then a two-line descriptor in Satoshi 300 22/28 Cream 80, then four `44px` circular social buttons (`1px` Hairline Strong, icons `18px`). Only render social buttons if a real destination exists.
 - **Middle:** three link columns (heading, then five links at `14px` rhythm)
-- **Right:** newsletter label, an email input (pill, `rgba(246,238,220,.14)` fill, Cream 55 placeholder), a full-width Cream "Subscribe" pill
-- **Bottom:** the giant mark and wordmark in Cream, bleeding off the bottom edge (about 40% of the wordmark's height visible below the columns); the mark is the orb in place of [D]'s squircle
+- **Right:** newsletter label, an email input (pill, `rgba(246,238,220,.14)` fill, Cream 55 placeholder), a full-width Cream "Subscribe" pill. Only render the newsletter if a working endpoint exists.
+- **Bottom:** the giant official lockup or N symbol in Cream, bleeding off the bottom edge (about 40% of its height visible below the columns). The official N symbol sits in place of [D]'s squircle
 - Padding `64px` sides, `56px` top
 
 ### Inputs & Forms (extrapolated; none beyond the newsletter in the references)
@@ -241,7 +250,7 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 
 | Order | Section | Source |
 |-------|---------|--------|
-| 0 | Intro (bokeh, orb, line, dissolve) | [A][C] |
+| 0 | Intro (bokeh, orb, line, resolve into N symbol and lockup) | [A][C] |
 | 1 | Landing hero (ember field, wordmark, melt) | [C] |
 | 2 | Pinned walkthrough (5 steps) | [B] |
 | 3 | Stack scenes (2–3 scenes, one aperture transition) | [E] |
@@ -255,26 +264,25 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 - `--beat: 1200ms`. Reveal `600ms` (½ beat), stagger `120ms` (1/10 beat), ambient loops `4 beats` (`4.8s`) or `8 beats` (`9.6s`)
 - `--ease-out: cubic-bezier(.16,1,.3,1)` · `--ease-lid: cubic-bezier(.65,0,.15,1)`; scroll-linked motion is scrubbed (`scrub: 0.8`), not eased
 
-**Intro (about 6.8s, proposed from [A]'s still)**
+**Intro (about 4s, proposed from [A]'s still)**
 
 | Time | Event |
 |------|-------|
 | 0.0–0.6s | black; grain and bokeh fade up (`blur 24 → 0`) |
-| 0.4–1.6s | beams drop at staggered columns with light heads; the orb descends its beam to the center and settles, halo pulsing once |
-| 1.4–2.4s | "Together," fades in (`blur 6 → 0`, `translateY 8 → 0`); then the rest of the line, word stagger `60ms` |
-| 2.4–3.6s | hold; the line and orb breathe |
-| 3.6–4.2s | the line fades out; the orb pulses once (`1 → 1.12 → 1`) |
-| 4.2–5.6s | the orb breaks into turbulence and the Melt resolves, left to right, into the clean wordmark; the bokeh and beams cross-morph into the Ember field |
-| 5.6–6.8s | tagline, corner blocks and nav fade in, `120ms` stagger |
+| 0.4–1.4s | beams drop at staggered columns with light heads; the orb descends its beam to the center and settles, halo pulsing once |
+| 1.2–2.4s | "There is always a next move." fades in (`blur 6 → 0`, `translateY 8 → 0`), word stagger `60ms` |
+| 2.4–3.2s | the line fades out; the orb resolves into the official N symbol |
+| 3.2–3.8s | the overlay lifts and the hero lockup resolves left to right from melt to clean; the bokeh and beams cross-morph into the Ember field |
+| 3.8–4.0s | tagline, corner blocks and nav fade in, `120ms` stagger |
 
-- Any scroll, click or key press completes the intro to its end in `300ms`
-- Repeat visits in a session play a `1.5s` variant (orb pulse, then the wordmark)
+- Any click, key, wheel or touch completes the intro in `300ms`, and a visible Skip intro button is always present
+- Repeat visits (stored in localStorage) skip the intro entirely. Reduced motion never plays it.
 
 **Hero → walkthrough:** on first scroll the wordmark fades (`opacity → 0`, `300ms`), the Ember field drains to Ember Black (`600ms`), and the phone rises with the Horizon band, as in the Entry phase above.
 
 **Reduced motion:** no intro, no melt, no pin. Show the hero static, then each walkthrough step as a stacked block with a `300ms` crossfade; stop ambient loops.
 
-**Implementation:** GSAP ScrollTrigger (`pin`, `scrub`) from cdnjs for the walkthrough and stack scenes; optionally Lenis. Animate only `transform`, `opacity`, `filter`, `clip-path`. Pause the Melt and bokeh when off screen.
+**Implementation:** GSAP + ScrollTrigger from npm only where pinning or scrubbing needs it. CSS for ambient loops and the intro. No native scroll hijacking. Animate only `transform`, `opacity`, `filter`, `clip-path`. Pause the Melt and bokeh when off screen.
 
 ### Sound
 None required. [B] and [C] are silent. [E] carries audio I haven't heard; if you want sound, supply stems, keep it muted by default behind a visible toggle, and start it only after a user gesture.
@@ -302,7 +310,7 @@ Dark space frames light. The intro and hero hold almost nothing; the walkthrough
 ### Do
 - Keep every color within the warm family; amber and ember carry all emphasis
 - Count every duration in beats
-- Let the orb dissolve into the wordmark with the Melt, not a plain fade
+- Let the orb resolve into the official N symbol, then the lockup
 - Keep the phone pinned at the center of the walkthrough with copy on the left and the index on the right
 - Use dark text on any amber fill
 - Limit serif accents to two words per headline
@@ -315,7 +323,7 @@ Dark space frames light. The intro and hero hold almost nothing; the walkthrough
 - Don't put cream text on amber
 - Don't add drop shadows or hard-edged cards
 - Don't use more than one aperture transition per page
-- Don't use Amber or Ember for gain or loss
+- Don't use Amber or Ember for verified or failed
 
 ## 8. Responsive Behavior
 
@@ -346,9 +354,10 @@ Dark space frames light. The intro and hero hold almost nothing; the walkthrough
 
 | Slot | What |
 |------|------|
-| Wordmark | NENTRA logotype SVG (optional; the Satoshi fallback exists) |
-| Orb mark | SVG with the Orb and Beam layers |
-| Phone screens | 5 product screens for the walkthrough |
+| Wordmark | Official lockup PNG, supplied (public/brand/nentra/nentra-lockup.png) |
+| N symbol | Official mark PNG, supplied (public/brand/nentra/nentra-mark.png) |
+| Orb mark | Atmosphere orb, code-drawn CSS (not a logo) |
+| Phone screens | 5 screens built from the persisted NG-2048 case events, labelled DEMO_SANDBOX, never fabricated operational data |
 | Scene previews | images for the stack scenes and the tilted card |
 | Case study cards | for the optional ring carousel |
 | Social icons | for the footer |
@@ -359,7 +368,7 @@ Dark space frames light. The intro and hero hold almost nothing; the walkthrough
 - **Ground:** `#0D0B07` · `#1B160F` · Olive `#26250F`
 - **Light:** Rust `#7A2A0E` · Ember `#B5440F` · Amber `#F28A2E` · Gold `#F5B561` · Honey `#E3C07F`
 - **Text:** Cream `#F6EEDC` · Cream 70 · Cream 55
-- **Data:** Gain `#8CCB86` · Loss `#E4604A`
+- **Order status:** Verified `#8CCB86` · Failed `#E4604A`
 
 ### Token Starter
 ```css
@@ -375,15 +384,15 @@ Dark space frames light. The intro and hero hold almost nothing; the walkthrough
   --r-tile:12px; --r-container:28px; --r-phone:44px; --gap:20px; --section-y:120px;
 }
 ```
-Satoshi loads from Fontshare (`https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap`); Georama and Instrument Serif from Google Fonts.
+Implemented: Satoshi (300, 400, 500, 700, downloaded from Fontshare) is self-hosted in `src/app/fonts/satoshi` through `next/font/local`. Georama and Instrument Serif load through `next/font/google`. Tokens and component classes live in `src/app/globals.css`, and landing components live in `src/components/landing/`.
 
 ### Build Order
 1. Fonts, tokens, ground, type classes, grain tile.
 2. Buttons, pills, inputs, nav.
-3. Orb mark and its states.
+3. Atmosphere orb and its intro states (the brand marks are the supplied PNGs).
 4. Ember field and the static hero with the wordmark and Corner Blocks.
 5. The Melt (clean, wave, torn) on the wordmark.
-6. The intro timeline: bokeh, beams, orb, line, dissolve into the wordmark.
+6. The intro timeline: bokeh, beams, orb, line, then the orb resolves into the official N symbol and the lockup.
 7. Pinned walkthrough: phone, Horizon band, index, copy swaps, screen swaps.
 8. Stack scenes: pills, tilted preview, pager, hand-off, one aperture transition.
 9. Spotlight grid, then bento.
@@ -394,7 +403,7 @@ Satoshi loads from Fontshare (`https://api.fontshare.com/v2/css?f[]=satoshi@300,
 ### Iteration Guide
 1. **Fonts are locked:** Satoshi for headlines and interface, Georama for labels and numerals, Instrument Serif only for up to two accent words. No Inter.
 2. **The base identity is the intro's warm dark:** ember, amber, honey and cream on near-black. Nothing cool.
-3. **The orb is the one mark;** it dissolves into the wordmark with the Melt.
+3. **The official N symbol and lockup are the only brand marks.** The orb is atmosphere that resolves into them.
 4. **Every duration is a multiple of the beat (`1200ms`).**
 5. **The walkthrough is pinned:** phone center, copy left, index right, copy crossfade `300/500ms`.
 6. **Scenes stack:** hold for a beat or two of motion, then slide the next scene over.
