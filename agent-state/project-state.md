@@ -7,3 +7,5 @@
 - The worker uses fenced per-attempt leases with heartbeats. Model requests have bounded timeouts.
 - The deterministic sandbox path passes the seeded case through customer correction, a persisted 503 quote fault, fallback approval, idempotent booking, and independent verification.
 - `NENTRA_RECOVERY_MODE=BASELINE` reproduces B0 by escalating on the persisted quote 503 without a fallback or booking. Unset or `RECOVERED` runs B1.
+- Specialist routing supports Groq for Investigator/Fulfillment and DeepSeek for Recovery, with bounded provider-specific JSON handling and `OPENAI_*` fallback.
+- This cloud runtime currently exposes no requested secrets or provider egress, so real PostgreSQL, model, and neatlogs verification is blocked.

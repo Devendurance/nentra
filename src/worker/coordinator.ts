@@ -57,6 +57,14 @@ function recoveryMode(env: AgentEnvironment): RecoveryMode {
   throw new Error("NENTRA_RECOVERY_MODE must be BASELINE or RECOVERED.");
 }
 
+function inferenceMetadata(execution: { mode: "deterministic" | "llm"; provider?: string; model?: string }) {
+  return {
+    mode: execution.mode,
+    ...(execution.provider ? { provider: execution.provider } : {}),
+    ...(execution.model ? { model: execution.model } : {}),
+  };
+}
+
 function addressCompleteness(context: CaseContext) {
   const address = record(context.order.addressJson);
   return {
@@ -195,7 +203,7 @@ async function investigate(options: CoordinatorOptions, context: CaseContext): P
     payload: { title: "Address review passed", summary: "Required delivery details are present, quote evaluation can begin.", station: "controller", nextAction: "Request the preferred quote" },
   }] : [];
   await commit(options, task.id, {
-    outputJson: { mode: execution.mode, missingFields: missing, nextAction: execution.output.nextAction, summary: execution.output.summary },
+    outputJson: { ...inferenceMetadata(execution), missingFields: missing, nextAction: execution.output.nextAction, summary: execution.output.summary },
     summary: execution.output.summary,
     actor: "investigator",
     events: [{
@@ -293,7 +301,7 @@ async function primaryQuote(options: CoordinatorOptions, context: CaseContext): 
         : { title: "Quote is within policy", summary: "The preferred sandbox quote is eligible and within the merchant ceiling.", station: "controller", nextAction: "Prepare an idempotent booking" },
     }];
     await commit(options, task.id, {
-      outputJson: { mode: agent.mode, quoteId: quote.id, selectedQuoteOptionId: agent.output.selectedQuoteOptionId, summary: agent.output.summary },
+      outputJson: { ...inferenceMetadata(agent), quoteId: quote.id, selectedQuoteOptionId: agent.output.selectedQuoteOptionId, summary: agent.output.summary },
       summary: agent.output.summary,
       actor: "fulfillment",
       transitions,
@@ -362,7 +370,7 @@ async function primaryQuote(options: CoordinatorOptions, context: CaseContext): 
       quotes: [],
     }, { env: options.agentEnv, telemetry: options.telemetry });
     await commit(options, task.id, {
-      outputJson: { mode: agent.mode, result: "FAILED", resultCode: code, summary: agent.output.summary },
+      outputJson: { ...inferenceMetadata(agent), result: "FAILED", resultCode: code, summary: agent.output.summary },
       summary: "The preferred quote request failed and was handed to recovery.",
       actor: "fulfillment",
       transitions: [{
@@ -440,7 +448,7 @@ async function recoverWithAlternative(options: CoordinatorOptions, context: Case
     throw new Error("The recovery decision did not select the persisted eligible fallback quote.");
   }
   await commit(options, task.id, {
-    outputJson: { mode: agent.mode, classification, action: agent.output.action, quoteId: quote.id, reason: agent.output.reason },
+    outputJson: { ...inferenceMetadata(agent), classification, action: agent.output.action, quoteId: quote.id, reason: agent.output.reason },
     summary: "Recovery classified the 503 as transient and selected the persisted alternative quote.",
     actor: "recovery",
     transitions: [{
@@ -482,7 +490,7 @@ async function evaluateQuote(options: CoordinatorOptions, context: CaseContext):
   if (quoteRow.amountNgn > context.merchant.maxShippingNgn) {
     const proposal = proposalHash(context.caseRecord.id, quoteRow.id, quoteRow.provider, quoteRow.service, quoteRow.amountNgn);
     await commit(options, task.id, {
-      outputJson: { mode: agent.mode, quoteId, decision: "REQUIRE_APPROVAL", summary: agent.output.summary },
+      outputJson: { ...inferenceMetadata(agent), quoteId, decision: "REQUIRE_APPROVAL", summary: agent.output.summary },
       summary: "The eligible alternative exceeds the configured ceiling and now requires explicit approval.",
       actor: "fulfillment",
       transitions: [{
@@ -500,7 +508,7 @@ async function evaluateQuote(options: CoordinatorOptions, context: CaseContext):
     throw new Error("The fulfillment agent did not select the eligible quote within the configured ceiling.");
   }
   await commit(options, task.id, {
-    outputJson: { mode: agent.mode, quoteId, decision: "ALLOW", summary: agent.output.summary },
+    outputJson: { ...inferenceMetadata(agent), quoteId, decision: "ALLOW", summary: agent.output.summary },
     summary: agent.output.summary,
     actor: "fulfillment",
     transitions: [{

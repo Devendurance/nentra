@@ -16,10 +16,18 @@ Use Node.js 22 or later, npm, and PostgreSQL 14 or later. Copy `.env.example` to
 | `NENTRA_WORKER_POLL_MS` | No | Idle poll delay. Defaults to 500 ms. |
 | `NENTRA_JOB_LEASE_MS` | No | Job lease duration. Defaults to 30 seconds. |
 | `NENTRA_RECOVERY_MODE` | No | `BASELINE` reproduces B0 by escalating after the persisted preferred-quote 503. `RECOVERED` (default) runs fallback, approval, booking and verification for B1. Set the same value on every worker for the duration of a run. |
-| `OPENAI_API_KEY` | No | Optional server-side OpenAI-compatible credential. |
-| `OPENAI_MODEL` | No | Optional model name. Both model and key are needed to call a model. |
-| `OPENAI_BASE_URL` | No | Optional OpenAI-compatible API base URL. |
-| `OPENAI_TIMEOUT_MS` | No | Bounded model request timeout in milliseconds. Defaults to 8,000 and is capped at 120,000. |
+| `GROQ_API_KEY` | No | Server-side Groq credential for Investigator and Fulfillment. With this key, the default model and official endpoint are used when their overrides are empty. |
+| `GROQ_MODEL` | No | Optional Groq model override. Defaults to `openai/gpt-oss-20b`, which is configured for strict JSON Schema output. |
+| `GROQ_BASE_URL` | No | Optional Groq-compatible endpoint override. Defaults to `https://api.groq.com/openai/v1`. |
+| `GROQ_TIMEOUT_MS` | No | Bounded Groq request timeout in milliseconds. Defaults to 10,000 and is capped at 120,000. |
+| `DEEPSEEK_API_KEY` | No | Server-side DeepSeek credential for Recovery. With this key, the default model and official endpoint are used when their overrides are empty. |
+| `DEEPSEEK_MODEL` | No | Optional DeepSeek model override. Defaults to `deepseek-flash`, using JSON Object response mode plus an explicit schema instruction. |
+| `DEEPSEEK_BASE_URL` | No | Optional DeepSeek-compatible endpoint override. Defaults to `https://api.deepseek.com`. |
+| `DEEPSEEK_TIMEOUT_MS` | No | Bounded DeepSeek request timeout in milliseconds. Defaults to 20,000 and is capped at 120,000. |
+| `OPENAI_API_KEY` | No | Backward-compatible server-side OpenAI-compatible fallback credential for any specialist role without its routed provider key. |
+| `OPENAI_MODEL` | No | Model for the compatibility fallback. Both model and key are required to use it. |
+| `OPENAI_BASE_URL` | No | Optional OpenAI-compatible fallback API base URL. |
+| `OPENAI_TIMEOUT_MS` | No | Bounded fallback request timeout in milliseconds. Defaults to 8,000 and is capped at 120,000. |
 | `NEATLOGS_API_KEY` | No | Optional neatlogs SDK credential. Trace IDs are saved only when the SDK returns a valid ID. |
 | `SHIPBUBBLE_API_KEY` | No | Reserved for a separately verified Shipbubble test integration, currently unused. |
 | `SHIPBUBBLE_BASE_URL` | No | Reserved for a separately verified Shipbubble test integration, currently unused. |
@@ -56,7 +64,9 @@ The sandbox adapter creates fictional quotes and booking records in PostgreSQL. 
 
 The same seeded fixture and one-shot fault support reproducible baseline and recovered comparisons. Use `NENTRA_RECOVERY_MODE=BASELINE` for B0: after the persisted preferred quote 503, the fulfillment task records failure, the case escalates, and no alternative quote or booking is created. Leave the setting unset or set it to `RECOVERED` for B1, which executes the recovery flow described above. Keep the worker setting unchanged while draining a run.
 
-When model credentials are absent, the three bounded specialist agent functions use deterministic validated decisions and persist the mode as `deterministic`. When configured, those functions call the OpenAI-compatible structured-output endpoint. Model output remains advice, and workflow policy validates the quote, approval and booking boundaries. No model or tool trace is claimed when no real neatlogs SDK trace was returned. neatlogs ingestion failure does not change the booking outcome.
+Investigator and Fulfillment route independently to Groq. Recovery routes independently to DeepSeek. Each provider key can be configured without the other. Groq requests use strict JSON Schema output. DeepSeek requests use JSON Object mode, include the expected JSON schema in the system instruction, and are parsed and validated with Zod before existing domain-policy checks run. Responses are bounded to 512 generated tokens. Provider timeouts default to 10 seconds for Groq and 20 seconds for DeepSeek, and each has an independent model, endpoint and timeout override.
+
+When a routed provider key is absent, a complete `OPENAI_API_KEY` plus `OPENAI_MODEL` configuration remains a backward-compatible fallback for that role. When neither routed nor fallback credentials are available, the three specialist functions use deterministic validated decisions and persist the mode as `deterministic`. Provider-backed tasks persist the provider and model alongside their execution mode. Model output remains advice, and workflow policy validates the quote, approval and booking boundaries. A configured model request that fails is reported as failed, with no silent switch to deterministic behavior. No model or tool trace is claimed when no real neatlogs SDK trace was returned. neatlogs ingestion failure does not change the booking outcome.
 
 ## API flow
 
@@ -88,4 +98,4 @@ For operator calls, pass the secret in the `x-nentra-operator-secret` header. Ke
 
 ## Credential and artifact limits
 
-The committed environment example has empty model, neatlogs and Shipbubble credentials. Without both `OPENAI_API_KEY` and `OPENAI_MODEL`, agents run in deterministic mode. Without a valid `NEATLOGS_API_KEY`, there are no external neatlogs traces or trace references. The repository does not claim verified Shipbubble behavior, live courier calls, customer messaging, Entire session captures, cfo.ai exports, or delivery. Those items require their real service credentials and independent artifacts before they can be reported as completed.
+The committed environment example has empty Groq, DeepSeek, OpenAI-compatible, neatlogs and Shipbubble credentials. Without a routed provider key or a complete `OPENAI_API_KEY` and `OPENAI_MODEL` fallback, agents run in deterministic mode. Without a valid `NEATLOGS_API_KEY`, there are no external neatlogs traces or trace references. The repository does not claim verified Shipbubble behavior, live courier calls, customer messaging, Entire session captures, cfo.ai exports, or delivery. Those items require their real service credentials and independent artifacts before they can be reported as completed.

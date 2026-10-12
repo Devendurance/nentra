@@ -8,27 +8,47 @@ export type LlmEnvironment = {
   OPENAI_MODEL?: string;
   OPENAI_BASE_URL?: string;
   OPENAI_TIMEOUT_MS?: string;
+  GROQ_API_KEY?: string;
+  GROQ_MODEL?: string;
+  GROQ_BASE_URL?: string;
+  GROQ_TIMEOUT_MS?: string;
+  DEEPSEEK_API_KEY?: string;
+  DEEPSEEK_MODEL?: string;
+  DEEPSEEK_BASE_URL?: string;
+  DEEPSEEK_TIMEOUT_MS?: string;
 };
+
+export type LlmProvider = "openai-compatible" | "groq" | "deepseek";
+export type SpecialistRole = "investigator" | "fulfillment" | "recovery";
 
 export type LlmConfig = {
   apiKey: string;
   model: string;
   timeoutMs: number;
+  provider: LlmProvider;
+  structuredOutput: "json_schema" | "json_object";
   baseURL?: string;
 };
 
 const DEFAULT_OPENAI_TIMEOUT_MS = 8_000;
-const MIN_OPENAI_TIMEOUT_MS = 250;
-const MAX_OPENAI_TIMEOUT_MS = 120_000;
+const DEFAULT_GROQ_TIMEOUT_MS = 10_000;
+const DEFAULT_DEEPSEEK_TIMEOUT_MS = 20_000;
+const MIN_PROVIDER_TIMEOUT_MS = 250;
+const MAX_PROVIDER_TIMEOUT_MS = 120_000;
+const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-flash";
+const MAX_OUTPUT_TOKENS = 512;
 
-function resolveOpenAITimeout(value: string | undefined): number {
-  if (!value?.trim()) return DEFAULT_OPENAI_TIMEOUT_MS;
+function resolveTimeout(value: string | undefined, fallback: number): number {
+  if (!value?.trim()) return fallback;
   const timeout = Number(value);
   return Number.isSafeInteger(timeout)
-    && timeout >= MIN_OPENAI_TIMEOUT_MS
-    && timeout <= MAX_OPENAI_TIMEOUT_MS
+    && timeout >= MIN_PROVIDER_TIMEOUT_MS
+    && timeout <= MAX_PROVIDER_TIMEOUT_MS
     ? timeout
-    : DEFAULT_OPENAI_TIMEOUT_MS;
+    : fallback;
 }
 
 export type NeatlogsIntegration = ReturnType<typeof createNeatlogsIntegration>;
@@ -41,9 +61,42 @@ export function resolveLlmConfig(env: LlmEnvironment): LlmConfig | undefined {
   return {
     apiKey,
     model,
-    timeoutMs: resolveOpenAITimeout(env.OPENAI_TIMEOUT_MS),
+    timeoutMs: resolveTimeout(env.OPENAI_TIMEOUT_MS, DEFAULT_OPENAI_TIMEOUT_MS),
+    provider: "openai-compatible",
+    structuredOutput: "json_schema",
     ...(baseURL ? { baseURL } : {}),
   };
+}
+
+export function resolveAgentLlmConfig(role: SpecialistRole, env: LlmEnvironment): LlmConfig | undefined {
+  if (role === "recovery") {
+    const apiKey = env.DEEPSEEK_API_KEY?.trim();
+    if (apiKey) {
+      return {
+        apiKey,
+        model: env.DEEPSEEK_MODEL?.trim() || DEFAULT_DEEPSEEK_MODEL,
+        timeoutMs: resolveTimeout(env.DEEPSEEK_TIMEOUT_MS, DEFAULT_DEEPSEEK_TIMEOUT_MS),
+        provider: "deepseek",
+        structuredOutput: "json_object",
+        baseURL: env.DEEPSEEK_BASE_URL?.trim() || DEEPSEEK_BASE_URL,
+      };
+    }
+  } else {
+    const apiKey = env.GROQ_API_KEY?.trim();
+    if (apiKey) {
+      return {
+        apiKey,
+        model: env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL,
+        timeoutMs: resolveTimeout(env.GROQ_TIMEOUT_MS, DEFAULT_GROQ_TIMEOUT_MS),
+        provider: "groq",
+        structuredOutput: "json_schema",
+        baseURL: env.GROQ_BASE_URL?.trim() || GROQ_BASE_URL,
+      };
+    }
+  }
+
+  // Keep existing OPENAI_* deployments working as a role-independent fallback.
+  return resolveLlmConfig(env);
 }
 
 export function createOpenAICompatibleClient(config: LlmConfig, telemetry: NeatlogsIntegration): OpenAI {
@@ -92,25 +145,40 @@ export class StructuredResponseError extends Error {
 export async function requestStructuredOutput<TSchema extends z.ZodType>(input: {
   client: OpenAI;
   model: string;
+  provider?: LlmProvider;
   schemaName: string;
   instructions: string;
   input: unknown;
   outputSchema: TSchema;
 }): Promise<z.infer<TSchema>> {
+  const provider = input.provider ?? "openai-compatible";
+  const schema = toOpenAIStructuredSchema(input.outputSchema);
+  const instructions = provider === "deepseek"
+    ? [
+      input.instructions,
+      "Return exactly one valid JSON object and no Markdown or surrounding text.",
+      "The JSON object must match this schema:",
+      JSON.stringify(schema),
+    ].join(" ")
+    : input.instructions;
+  const responseFormat = provider === "deepseek"
+    ? { type: "json_object" as const }
+    : {
+      type: "json_schema" as const,
+      json_schema: { name: input.schemaName, strict: true, schema },
+    };
+  const outputBound = provider === "deepseek"
+    ? { max_tokens: MAX_OUTPUT_TOKENS }
+    : { max_completion_tokens: MAX_OUTPUT_TOKENS };
+
   const response = await input.client.chat.completions.create({
     model: input.model,
     messages: [
-      { role: "system", content: input.instructions },
+      { role: "system", content: instructions },
       { role: "user", content: JSON.stringify(input.input) },
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: input.schemaName,
-        strict: true,
-        schema: toOpenAIStructuredSchema(input.outputSchema),
-      },
-    },
+    ...outputBound,
+    response_format: responseFormat,
     temperature: 0,
   });
 
