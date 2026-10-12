@@ -95,3 +95,12 @@
 
 - Always follow or reference the UI design system when creating or reviewing components or pages.
 - Design System: @DESIGN.md
+- Website copy and product claims come from `docs/Nentra product language, UX and copy.md`. Never invent stats, customers, testimonials or integrations.
+- Use only the official Nentra PNGs in `public/brand/nentra/` as brand marks. Never recreate the logo in text. The glass orb is atmosphere, not a logo.
+- Brand line: "There is always a next move." Descriptor: "AI order operations for online merchants." Nentra is not a finance or wallet product.
+- Fonts: Satoshi (self-hosted via `next/font/local`), Georama and Instrument Serif. Never Inter.
+- Every enabled link must reach a real destination or an implemented section. Don't add login, signup or wallet controls until they exist.
+- Landing phases are built one at a time and wait for the user's visual approval.
+- The intro plays on every landing-page entry (load, refresh, return). Never persist an "intro seen" flag. Reduced motion never plays it.
+- Hero motion must be visible automatically, without a pointer, on touch devices too. Pointer effects are optional extras only.
+- Verify frontend changes in a real browser (Playwright against `next dev` or `next start`) at 375, 768, 1280 and 1440, including reduced motion.
