@@ -1,4 +1,5 @@
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 import { EmberCanvas } from "./EmberCanvas";
 import { MeltLockup } from "./MeltLockup";
@@ -87,9 +88,16 @@ export function Hero() {
           Nentra investigates order exceptions, coordinates the next action, and helps merchants move orders toward
           verified fulfilment.
         </p>
-        <div className="hero-reveal mt-9" style={{ "--i": 3 } as React.CSSProperties}>
-          <a href="#how-it-works" className="btn btn-cream">
-            See how it works
+        <div
+          className="hero-reveal mt-9 flex flex-wrap items-center justify-center gap-3"
+          style={{ "--i": 3 } as React.CSSProperties}
+        >
+          <Link href="/app" className="btn btn-cream">
+            Watch a recovery
+            <ArrowRight aria-hidden="true" size={18} strokeWidth={2} />
+          </Link>
+          <a href="#how-it-works" className="btn btn-outline">
+            How it works
             <ArrowDown aria-hidden="true" size={18} strokeWidth={2} />
           </a>
         </div>

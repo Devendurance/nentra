@@ -15,6 +15,9 @@
 - ICO files Next processes must embed RGBA PNGs.
 - Never call `WEBGL_lose_context().loseContext()` in effect cleanup. StrictMode reruns the effect on the same canvas, and `getContext` then returns the lost context, so the shader silently never renders.
 - `npx next start` on Windows can leave an orphaned node process holding the port, which then serves stale build assets. Check `Get-NetTCPConnection -LocalPort <port>` before restarting.
+- Adding new route folders while `next dev` runs can cause an endless recompile and reload loop. Restart the dev server after creating routes.
+- The public API doesn't expose task provider or model, so don't claim Groq or DeepSeek in the UI without a sanitized source. `run.traceRef` is the only trace field.
+- Neon reads take about 3-5s per request from this local machine. Load floor data in parallel.
 - Measure hero text contrast over time (`contrast.mjs` style sampling of saturated background pixels), not one frame, because the field moves.
 - Cream text over the brightest ember is about 4.4:1. Hero body copy stays full cream over the center scrim. Never use cream text on amber fills.
 - Logos: use the trimmed official PNGs in `public/brand/nentra/` (`nentra-lockup.png`, `nentra-mark.png`). The glass orb is atmosphere only.

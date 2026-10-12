@@ -103,4 +103,6 @@
 - Landing phases are built one at a time and wait for the user's visual approval.
 - The intro plays on every landing-page entry (load, refresh, return). Never persist an "intro seen" flag. Reduced motion never plays it.
 - Hero motion must be visible automatically, without a pointer, on touch devices too. Pointer effects are optional extras only.
+- Nentra Floor (`/app`) is read-only. It uses only the public GET endpoints and never calls start, reset, approval, cancel or correction routes. Every animated floor state must come from a persisted event. Never fall back to fixtures when a live query fails.
+- Clearly label replay of a recorded run versus live observation, and show the DEMO_SANDBOX mode from the API.
 - Verify frontend changes in a real browser (Playwright against `next dev` or `next start`) at 375, 768, 1280 and 1440, including reduced motion.

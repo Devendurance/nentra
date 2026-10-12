@@ -1,14 +1,23 @@
-# Left Off (branch fix/neatlogs-sponsor-evidence)
+# Left Off (branch fix/neatlogs-sponsor-evidence, integrating main 40b84d4)
 
-- Doing: sponsor evidence + neatlogs tracing correction on this branch. Landing Phase 2 still waits for user approval; Devin builds Floor on another branch, do not merge this branch meanwhile.
-- Done: neatlogs wrappers now return redacted safe span outputs instead of undefined (real 503 still throws/ERROR); 4 new regression tests; full suite 102/102; lint clean; build passes; cfo worksheet + tracing note + entire status snapshots in evidence/.
-- Next: commit, push, open PR into main (no merge); user-side actions are cfo.ai model creation, Entire login, and explicit permission for a live post-fix demo run.
-- Known gaps: Pi session 01a130a4 has no Entire session state (not logged in, 0 checkpoints); dashboard-level red aggregation after recovery is documented, not re-verified live.
+- Doing: final integration. Merge main Phase 2 Floor into this branch, keep all PR #3 evidence, verify, then merge PR #3.
+- Done: neatlogs wrappers now return redacted safe span outputs instead of undefined (real 503 still throws/ERROR); 4 new regression tests; cfo worksheet plus tracing note plus entire status snapshots in evidence/; judges demo guide in docs/hackathon-demo-evidence.md; Entire checkpoint 01M4RDHBN8Z60Q0MVVS35EG3MK linked to commit a9d6aeb.
+- Next: run focused tests, full suite, type-check, lint, and build. Push the reconciled branch and verify PR #3 is mergeable. Merge PR #3 only if all checks pass.
+- Known gaps: dashboard-level red aggregation after recovery is documented, not re-verified live; cfo.ai model creation needs user account access; a live post-fix demo run needs explicit permission.
 
 --- Prior landing state (main) ---
 
-- Doing: landing page frontend, built in phases with visual approval between each one.
-- Done (Phase 1 + motion corrections, merged to `main` from `frontend/phase-1-intro-hero`): brand tokens and fonts, an intro that plays on every page entry, the ember-field hero with WebGL living field and automatic lockup melt cycle, nav with an accessible mobile menu, the interim "How it works" section, and the DESIGN.md corrections.
-- Verified on production build: fresh load, refresh, back navigation and revisit all replay the intro. Skip works and rerenders don't replay. The melt cycles automatically (canvas active 8-10s of every 14.4s), the field animates at 30fps, and the page holds 60fps. Reduced motion is static. 375/768/1280 have no overflow and there are no console errors. Hero copy contrast stays at 5.8:1 or better over 30s of field motion.
-- Next: wait for the user's approval to start Phase 2, the pinned walkthrough [B] driven by persisted NG-2048 events (read-only, DEMO_SANDBOX).
-- Known gaps: C's dark forms are a regular round lattice and ours are deliberately irregular per the user's brief. C's melt is active almost constantly, while ours keeps 5.4s clean holds by request.
+- Doing: Nentra Floor (Phase 2), a read-only operations floor and replay of the persisted NG-2048 run.
+- Done (branch `frontend/phase-2-operations-floor`):
+  - `/app` discovers cases via GET /api/cases. `/app/cases/[caseId]` is the same floor scoped to one case.
+  - The isometric SVG floor has six stations and agents, task-token handoffs, the failure state, a recovery branch and the verifier seal.
+  - Also built: the decisions rail, the event-strip scrubber, the full timeline with inspection, and the verification receipt.
+  - Replay supports play, pause, restart, step, scrub and 1x/2x.
+  - Cursor-polling live mode, plus loading, error, not-found and reconnecting states.
+  - Landing entry links.
+- Verified against real Neon data on the production build:
+  - 45 events rendered, and all 45 replay positions match the persisted titles. The seal appears only at #44 PASS and the banner at #45.
+  - Keyboard, refresh, case route, 404, the API-failure state (no substitute data), the live-polling harness, 390px mobile and reduced motion all pass.
+  - No non-GET requests and no secrets in the client bundle. 107/107 tests pass.
+- Next: wait for the user's instruction. Candidate next slice is an operator-authenticated new run, the customer correction form and approval controls.
+- Known issues: each public API read takes about 3-5s from this machine to Neon, so the first floor load takes about 8-10s. Provider and model attribution (Groq or DeepSeek) isn't exposed by the public API, so the floor doesn't show it.
