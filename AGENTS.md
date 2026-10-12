@@ -68,6 +68,7 @@
 
 
 - Never implement features yourself when possible; use sub-agents.
+- Implementation sub-agents use the available `gpt-6-luna` model with `max` reasoning effort. The final review agent uses `gpt-6.1-sol` with `low` reasoning effort.
 - Identify changes from the plan that can be implemented in parallel, and use sub-agents to implement the features efficiently.
 - When using sub-agents to implement features, act as a coordinator only.
 - After completing features, whether large or small, always run commands such as lint, type check, and next build to check code quality.

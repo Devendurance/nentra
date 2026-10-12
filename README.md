@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nentra
 
-## Getting Started
+Nentra is a durable demo workflow for a fictional Lagos order blocked by missing delivery details. It stores case state, agent tasks, events, quotes, approval decisions, booking intent and verification evidence in PostgreSQL through Drizzle.
 
-First, run the development server:
+## Run locally
+
+Use Node.js 22 or later and PostgreSQL. Install dependencies, set the server environment, apply migrations, seed the demo, then start the web process and worker in separate terminals:
 
 ```bash
+npm ci
+cp .env.example .env
+npm run db:migrate
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev:worker
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The seed command prints the one-time customer correction token to its caller. Keep it for the correction request. See [Backend setup and API flow](docs/backend.md) for environment details, endpoints, worker operation, sandbox behavior, and credential limits.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For a reproducible comparison on the same seeded case, set `NENTRA_RECOVERY_MODE=BASELINE` to capture B0 after the real persisted quote failure, or leave it at `RECOVERED` to run the B1 recovery path.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To execute queued jobs locally without a long-running worker, run:
 
-## Learn More
+```bash
+npm run demo:run -- <CASE_ID>
+```
 
-To learn more about Next.js, take a look at the following resources:
+This drains available persisted steps until the case pauses for customer input or approval, completes, or escalates. It does not claim delivery.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development checks
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm test
+npm run type-check
+npm run lint
+```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`npm run db:generate` creates a migration from a schema change. Apply it with `npm run db:migrate`. Never use `drizzle-kit push`.
