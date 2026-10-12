@@ -2,10 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 
-export const INTRO_STORAGE_KEY = "nentra:intro-seen";
 export const REVEAL_EVENT = "nentra:reveal";
 
-/** play: first visit, intro running. reveal: intro handed over to the hero. skip: returning or reduced motion. */
+/** play: intro running (every page entry). reveal: intro handed over to the hero. skip: reduced motion. */
 export type IntroState = "play" | "reveal" | "skip";
 
 function subscribe(onChange: () => void) {

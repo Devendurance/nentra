@@ -134,24 +134,27 @@ Fallback: Georgia, serif
 
 ### Wordmark & Melt [A][C]
 - **Wordmark:** the official lockup PNG, centered, tagline below, two Corner Blocks bottom-left and bottom-right (three lines each, left- and right-aligned), per [C]'s layout
-- **Melt source:** the melt is applied to the official lockup artwork through SVG filters (`feTurbulence` + `feDisplacementMap` + an alpha threshold) on a masked overlay copy. The clean lockup stays underneath, and legibility recovers within about `600ms`.
-- **Melt states (from [C]):**
+- **Melt source:** a small WebGL fragment shader samples the official lockup PNG as a texture, with domain-warped displacement, marbled contour bands, torn fragments and a hard alpha threshold. The clean PNG is the resting, fallback and reduced-motion state. The canvas replaces it only while the melt runs, in the same frame, so the two never show together.
+- **Melt cycle (automatic, from [C]'s timing):**
 
 | State | Duration | Look |
 |-------|----------|------|
-| Clean | rest | solid Cream letters on the field |
-| Wave | about 6s | a turbulent displacement wave starts at the leftmost glyph and travels right (about `150px/s`); letters turn into marbled, high-contrast cream fragments with a hard threshold, the tagline fades out |
-| Torn | holds | letters stay legible with ragged, torn edges |
-| Reform | not shown in the video | letters settle to Clean |
+| Form | 2.6s | at the intro hand-off the lockup reforms left to right from melted fragments |
+| Clean | 5.4s | the clean official PNG, fully legible |
+| Melt | 3s | a ragged front travels left to right and the letters become marbled, liquid cream fragments |
+| Sustain | 2.4s | the whole lockup swirls and reshapes |
+| Reform | 3.6s | letters re-form left to right with torn edges, then return to Clean |
 
-- **Use 1 (intro):** the orb resolves into the official N symbol, then the overlay lifts and the hero lockup resolves left to right from melt to clean
-- **Use 2 (after the intro):** opt-in on pointer hover only (radius about `160px`), resolving when the pointer leaves. No perpetual glitching, no melt on touch devices and no melt under reduced motion.
-- **Implementation:** SVG `feTurbulence` + `feDisplacementMap` + an alpha threshold (`feComponentTransfer`) on the masked overlay copy of the lockup; limit the effect to the lockup's box (at most `1200 × 420`)
+- The cycle repeats every `14.4s` (12 beats) while the hero is on screen and pauses when it is off screen or the tab is hidden. It also runs on touch devices.
+- **Pointer (optional):** mouse movement near the lockup adds a local melt that heals as soon as the pointer rests. It is never the only way to see the effect.
+- **Reduced motion:** the clean lockup only. No WebGL context is created.
 
 ### Ember Field [C]
-- A field of `#B5440F` with Amber and Gold Glow highlights, and Ember Black / Olive Shadow blotches on a staggered lattice (about two blotches per `1000px`), each blotch `300–420px`, feathered
-- Slow drift: blotches move `±3vw` over `8 beats`; the lattice never resets visibly
-- Heavy grain (`12–14%`); nothing sharp except the wordmark
+- A field of `#B5440F` with Amber and Gold Glow highlights, and Ember Black / Olive Shadow forms on a domain-warped staggered lattice, so the dark forms are irregular, feathered and continuously reshaping
+- Motion: the lattice drifts about `2.5%` of the hero height per second and its forms stretch and reshape, clearly visible within 3 seconds, and it never loops
+- Highlights are suppressed in the central text column so cream copy keeps its contrast
+- Rendered by a WebGL shader at about a third of CSS resolution, at 30fps, paused off screen. The CSS gradient field underneath is the fallback. Reduced motion renders a single static frame.
+- Heavy grain (`24%` overlay tile); nothing sharp except the wordmark
 
 ### Navigation [B][C]
 - **Layout:** official Nentra lockup left; links right. Links must point to implemented sections or real destinations. No wallet, login or signup controls until those exist. In [B] the nav appears after the hero, so fade it in at the end of the intro
@@ -276,13 +279,13 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 | 3.8–4.0s | tagline, corner blocks and nav fade in, `120ms` stagger |
 
 - Any click, key, wheel or touch completes the intro in `300ms`, and a visible Skip intro button is always present
-- Repeat visits (stored in localStorage) skip the intro entirely. Reduced motion never plays it.
+- The intro plays on every entry to the landing page: fresh loads, refreshes, client-side returns and back/forward cache restores. Nothing is stored, and ordinary rerenders never replay it. Reduced motion never plays it.
 
 **Hero → walkthrough:** on first scroll the wordmark fades (`opacity → 0`, `300ms`), the Ember field drains to Ember Black (`600ms`), and the phone rises with the Horizon band, as in the Entry phase above.
 
 **Reduced motion:** no intro, no melt, no pin. Show the hero static, then each walkthrough step as a stacked block with a `300ms` crossfade; stop ambient loops.
 
-**Implementation:** GSAP + ScrollTrigger from npm only where pinning or scrubbing needs it. CSS for ambient loops and the intro. No native scroll hijacking. Animate only `transform`, `opacity`, `filter`, `clip-path`. Pause the Melt and bokeh when off screen.
+**Implementation:** GSAP + ScrollTrigger from npm only where pinning or scrubbing needs it. CSS for the intro and simple ambient loops. Two small dependency-free WebGL1 shaders (`src/components/landing/gl.ts`) drive the hero field and the melt. No Three.js. No native scroll hijacking. Animate only `transform`, `opacity`, `filter`, `clip-path`. Pause the Melt and bokeh when off screen.
 
 ### Sound
 None required. [B] and [C] are silent. [E] carries audio I haven't heard; if you want sound, supply stems, keep it muted by default behind a visible toggle, and start it only after a user gesture.

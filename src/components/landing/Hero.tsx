@@ -1,5 +1,6 @@
 import { ArrowDown } from "lucide-react";
 
+import { EmberCanvas } from "./EmberCanvas";
 import { MeltLockup } from "./MeltLockup";
 
 const LIGHTS = [
@@ -60,6 +61,7 @@ function Field() {
           }
         />
       ))}
+      <EmberCanvas />
       <span className="ember-scrim" />
     </div>
   );

@@ -101,4 +101,6 @@
 - Fonts: Satoshi (self-hosted via `next/font/local`), Georama and Instrument Serif. Never Inter.
 - Every enabled link must reach a real destination or an implemented section. Don't add login, signup or wallet controls until they exist.
 - Landing phases are built one at a time and wait for the user's visual approval.
+- The intro plays on every landing-page entry (load, refresh, return). Never persist an "intro seen" flag. Reduced motion never plays it.
+- Hero motion must be visible automatically, without a pointer, on touch devices too. Pointer effects are optional extras only.
 - Verify frontend changes in a real browser (Playwright against `next dev` or `next start`) at 375, 768, 1280 and 1440, including reduced motion.

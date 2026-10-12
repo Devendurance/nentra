@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { INTRO_STORAGE_KEY, revealHero, useIntroState } from "./intro-state";
+import { revealHero, useIntroState } from "./intro-state";
 
 const LINE = "There is always a next move.".split(" ");
 const NATURAL_REVEAL_MS = 3600;
@@ -24,10 +24,30 @@ const BEAMS = [
 
 export function Intro() {
   const state = useIntroState();
+  const [run, setRun] = useState(0);
   const [finished, setFinished] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const revealed = useRef(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // The intro plays on every entry to the landing page: fresh loads and refreshes via the
+  // head script, client-side returns on mount, and back/forward cache restores via pageshow.
+  // It never replays on ordinary rerenders because nothing here depends on render count.
+  useEffect(() => {
+    const root = document.documentElement;
+    const reduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (root.dataset.intro === "reveal" && !reduce()) root.dataset.intro = "play";
+    const onShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || reduce()) return;
+      revealed.current = false;
+      setFinished(false);
+      setLeaving(false);
+      setRun((value) => value + 1);
+      root.dataset.intro = "play";
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   const complete = useCallback(() => {
     if (revealed.current) return;
@@ -44,10 +64,6 @@ export function Intro() {
 
   useEffect(() => {
     if (!playing) return;
-    try {
-      localStorage.setItem(INTRO_STORAGE_KEY, String(Date.now()));
-    } catch {}
-
     // Sync the hand-off to the CSS timeline, which can start before hydration.
     const fade = overlayRef.current
       ?.getAnimations()
@@ -69,13 +85,14 @@ export function Intro() {
       window.removeEventListener("touchstart", skip);
       window.removeEventListener("pointerdown", skip);
     };
-  }, [playing, complete, skip]);
+  }, [playing, run, complete, skip]);
 
   if (state === "skip" || finished) return null;
 
   return (
     <>
       <div
+        key={run}
         ref={overlayRef}
         className={`intro grain${leaving ? " is-leaving" : ""}`}
         aria-hidden="true"
@@ -142,6 +159,7 @@ export function Intro() {
         </div>
       </div>
       <button
+        key={`skip-${run}`}
         type="button"
         className={`intro-skip btn btn-outline btn-sm${leaving ? " is-leaving" : ""}`}
         onClick={skip}

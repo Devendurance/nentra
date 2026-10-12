@@ -39,8 +39,9 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-// Runs before first paint so returning visitors and reduced-motion users never see the intro flash.
-const introGate = `(function(){var d=document.documentElement;try{var seen=localStorage.getItem("nentra:intro-seen");var reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;d.dataset.intro=seen||reduce?"skip":"play";}catch(e){d.dataset.intro="skip";}})();`;
+// Runs before first paint. The intro plays on every load and refresh, and reduced-motion
+// users never see it or a flash of it.
+const introGate = `(function(){var d=document.documentElement;try{d.dataset.intro=window.matchMedia("(prefers-reduced-motion: reduce)").matches?"skip":"play";}catch(e){d.dataset.intro="play";}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
