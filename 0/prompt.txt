@@ -1,0 +1,30 @@
+NENTRA — COMPLETE ENTIRE CHECKPOINT EVIDENCE
+
+Entire CLI authentication has now succeeded. Entire v0.11.4 reports enabled with Pi hooks OK, but zero checkpoints.
+
+Work in the existing isolated Pi clone and branch fix/neatlogs-sponsor-evidence. PR #3 is open. Devin's frontend Phase 2 has now merged to main at 40b84d4.
+
+Perform one genuine, useful, bounded documentation task: create a concise judges' demonstration and evidence guide based on the real verified Nentra implementation.
+
+Cover:
+- B0: 21 events, ESCALATED, no booking.
+- B1: 45 events, RESOLVED, one DEMO_SANDBOX booking, one PASS receipt.
+- Groq and DeepSeek execution evidence.
+- neatlogs trace IDs and the distinction between handled 503 failures and successful outcomes.
+- The new /app read-only floor and its limitations.
+- What the demo must show, including Entire and cfo.ai.
+- No invented capabilities, credentials or personal information.
+
+Review current main before writing and ensure all statements are supported by source or recorded evidence.
+
+Save as docs/hackathon-demo-evidence.md.
+
+Ensure the current Pi session is actually captured by Entire. Commit this substantive work from the active Pi session.
+
+Then run entire checkpoint list and verify a real checkpoint ID associated with the work. Check Entire's recorded session and commit link.
+
+If there is no checkpoint, diagnose hooks rather than claiming success.
+
+Preserve PR #3, avoid frontend edits, and do not touch Neon or EC2.
+
+Push the legitimate changes to PR #3 and report the checkpoint ID, associated commit and verification output. Do not merge the PR yet.
