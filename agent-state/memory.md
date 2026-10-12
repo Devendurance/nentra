@@ -21,5 +21,9 @@
 - Measure hero text contrast over time (`contrast.mjs` style sampling of saturated background pixels), not one frame, because the field moves.
 - Cream text over the brightest ember is about 4.4:1. Hero body copy stays full cream over the center scrim. Never use cream text on amber fills.
 - Logos: use the trimmed official PNGs in `public/brand/nentra/` (`nentra-lockup.png`, `nentra-mark.png`). The glass orb is atmosphere only.
+- GSAP parses a CSS `transform` already on an element as pixel `y` and adds it to `yPercent`. When CSS pre-positions an element, reset `y: 0` in both sides of `fromTo`.
+- Next 16 keeps visited routes alive while hidden and re-runs effects on return, so component state like a finished intro persists. Reset on re-entry in an effect, not only on mount.
+- A native `#hash` anchor click pushes a history entry without Next's router state. Going Back to it from another route leaves the old route on screen and blocks scrolling. Route in-page anchors through `HashNavigation`.
+- Playwright `waitForSelector` checks the first match. With crossfaded screens, wait for `state: "attached"` or target the active screen.
 - Neatlogs wrappers must return a redacted safe summary from sdk.trace callbacks, never undefined; exceptions propagate so real failures stay ERROR. Safe keys allowlist lives in src/integrations/neatlogs/index.ts.
 - Sponsor evidence lives in evidence/ (entire status snapshots, neatlogs tracing note, cfo worksheet). Never commit credentials or dashboard secrets there.

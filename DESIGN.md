@@ -187,6 +187,13 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 
 - Screen content per step is built from the persisted NG-2048 case events, labelled DEMO_SANDBOX. Never fabricate operational data.
 
+**As built (`Walkthrough.tsx`, `PhoneScreen.tsx`, `walkthrough.css`)**
+- Labelled "Recorded sandbox recovery". The five beats are split by persisted anchor events (`recorded/beats.ts`): plan recorded, customer input required, tool failed, approval granted, case resolved. A beat whose anchor was never recorded says so instead of inventing it.
+- Each phone row is a persisted event (seq, actor, title, summary). Up to five rows per beat, ranked so key events win over generic delegations. Earlier rows compress to one line in the pinned phone. Approval renders as a meter (ceiling from `merchant.maxShippingNgn`, amount from the receipt), PASS as a Verified seal.
+- Runway `5 × 90vh`, pinned with GSAP ScrollTrigger (loaded on demand) from 1024px with motion allowed. Rows reveal with scroll inside each beat. The index buttons scroll to their beat, so keyboard users can step through it.
+- Below 1024px or with reduced motion there is no pin: five stacked steps, each with copy and its own phone.
+- The phone is a presentation of recorded events, not a shipped mobile app.
+
 ### Stack Scenes [E] (other sections)
 - **Runway:** `200–260vh` pinned; inside, `3–4` beats of motion before the hand-off
 - **Beats:** the heading and paragraph enter; outlined tag pills highlight one at a time (the active pill fills Cream with Ember Black text, one beat each); a tilted preview card swaps its image on each pill (`perspective(1200px) rotateY(-14deg) rotateX(6deg) rotateZ(4deg)`, floating `±10px` over `5s`); numbers count up
@@ -195,6 +202,21 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 - **Tags:** `1px` Hairline pill, Georama 500 11px caps, `+0.08em`
 - **Ring carousel (optional, for case studies):** 7–9 cards on a ring (radius about `36vw`, tilted `rotateX(10deg)`); scroll rotates the ring; the active card centers, scales `1.15` and shows its title with a serif accent; others dim to `.55` and blur `1px`
 - **Aperture transition (use once, between the walkthrough and the features):** a vertical lens opens from a slit onto the next scene, rim `2px` Gold Glow with `0 0 16px rgba(245,181,97,.8)`; modeled on [E]'s portal
+
+**As built (`StoryStack.tsx`, `story.css`, section `#why`)**
+- Five scenes, each with an eyebrow pill, H2-styled headline, lead, tag pills and a tilted card: the problem, the team, when a tool fails, approvals, verification.
+- Cards are code-drawn and labelled "Illustrative", except the team card, which shows the real Nentra roles. None of them shows recorded data. The proof lives in the bento.
+- Desktop with motion: one pinned stage, `16 units × 34vh`. Each scene holds for `2.4` units while its pills advance, then the next slides over it in `1` unit while the outgoing scene lifts `12%`, scales to `.94` and dims. The aperture opens the stage as it arrives. Pills and the dot pager are buttons that scroll to their beat.
+- Narrow screens and reduced motion: plain stacked sections, and tapping a pill swaps the card.
+
+### Proof bento [M] (`ProofBento.tsx`, `bento.css`, section `#proof`)
+- Heading "Every step has a reason and a record." Five tiles inside the glass container: Investigation (8 cols), Handoffs, Recovery, Approval, Evidence (4 cols each).
+- Every figure, code and quote comes from the recorded run through the public API: the investigator's finding, the delegation count and roles, `PROVIDER_503` and the fallback, ceiling against the receipt amount, the receipt checks. Loading shows skeletons, failure shows "Unavailable right now". Nothing falls back to fixed values.
+- The spotlight grid (`RecoveryLoop`, section `#loop`) follows the bento as the generalised loop, including escalation.
+
+### Recorded data on the landing
+- `RecordedCaseProvider` reads `GET /api/cases`, picks the newest `RESOLVED` case with a PASS receipt, then reads its events and evidence in parallel. It starts after hydration, retries twice with backoff, and never blocks the hero.
+- States: loading, empty (no verified case yet), error with a retry button. There is no mock fallback.
 
 ### Nentra Floor (`/app`)
 - **Purpose:** watch a persisted recovery. A visitor should understand within five seconds what happened, which agent owns the work and why the outcome is verified.
@@ -231,6 +253,11 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 - **Bottom:** the giant official lockup or N symbol in Cream, bleeding off the bottom edge (about 40% of its height visible below the columns). The official N symbol sits in place of [D]'s squircle
 - Padding `64px` sides, `56px` top
 
+**As built (`Closing.tsx`, `closing.css`)**
+- CTA band: eyebrow "Nentra Floor", "Keep the business moving when the order *does not.*", a lead, "Watch the full recovery" to `/app` and "Read the source" to GitHub.
+- Footer: lockup, descriptor and the brand line; columns Explore (landing anchors), Product (`/app`, back to top) and Project (source, DESIGN.md, product language doc, demo evidence on GitHub); a fine-print note that demo data is fictional and a booking is never a delivery. No social circles (no official brand icon is available) and no newsletter (no endpoint). The giant official lockup bleeds off the bottom edge. Where `animation-timeline: view()` is supported, the glow rises into place as the footer enters.
+- In-page anchors go through `HashNavigation`, which keeps the router's history state so Back from `/app` restores the landing page.
+
 ### Inputs & Forms (extrapolated; none beyond the newsletter in the references)
 - Pill, `48px` high, `rgba(246,238,220,.08)` fill, `1px` Hairline border, Satoshi 16 Cream; focus border `#F5B561` plus `0 0 0 4px rgba(245,181,97,.2)`; a visible label in Satoshi 14/500 above
 
@@ -263,11 +290,13 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 |-------|---------|--------|
 | 0 | Intro (bokeh, orb, line, resolve into N symbol and lockup) | [A][C] |
 | 1 | Landing hero (ember field, wordmark, melt) | [C] |
-| 2 | Pinned walkthrough (5 steps) | [B] |
-| 3 | Stack scenes (2–3 scenes, one aperture transition) | [E] |
-| 4 | Features (spotlight grid) | [M] |
-| 5 | Output (bento) | [M] |
+| 2 | Pinned walkthrough of the recorded run, `#how-it-works` (5 steps) | [B] |
+| 3 | Stack scenes, `#why` (5 scenes, one aperture transition) | [E] |
+| 4 | Proof bento from the recorded run, `#proof` | [M] |
+| 5 | Recovery loop spotlight grid, `#loop` | [M] |
 | 6 | CTA band + footer | [D] |
+
+The order moves from the specific to the general: what happened to one order, why it matters, the proof, then the loop Nentra is designed to repeat.
 
 ### Motion Choreography
 

@@ -1,0 +1,55 @@
+/* Loading, empty and error lines for panels that read the recorded run */
+
+.rec-state {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0.04em;
+  color: var(--cream-70);
+}
+
+.rec-state.is-error {
+  color: var(--cream);
+}
+
+.rec-state.is-error::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--failed);
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: rec-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes rec-pulse {
+  from {
+    opacity: 0.3;
+  }
+}
+
+.rec-retry {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 9999px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cream);
+  transition: background-color 300ms var(--ease-out);
+}
+
+.rec-retry:hover {
+  background: rgba(246, 238, 220, 0.1);
+}

@@ -106,3 +106,6 @@
 - Nentra Floor (`/app`) is read-only. It uses only the public GET endpoints and never calls start, reset, approval, cancel or correction routes. Every animated floor state must come from a persisted event. Never fall back to fixtures when a live query fails.
 - Clearly label replay of a recorded run versus live observation, and show the DEMO_SANDBOX mode from the API.
 - Verify frontend changes in a real browser (Playwright against `next dev` or `next start`) at 375, 768, 1280 and 1440, including reduced motion.
+- Landing panels that show operational data read the recorded run through the public GET API (`RecordedCaseProvider`). They must never block the hero, and they show loading, empty and error states instead of fixed values. Illustrative visuals are labelled "Illustrative".
+- Pinned or scrubbed scenes use GSAP ScrollTrigger, loaded on demand, only at 1024px and up with motion allowed. Narrow screens and reduced motion get unpinned, stacked content. Never trap scroll.
+- New landing section styles go in a CSS file next to the component, not in `globals.css`.
