@@ -17,7 +17,10 @@
 - Intro state lives on `<html data-intro>`, set before paint by an inline script in `layout.tsx`. `play` on every page entry, `reveal` after the hand-off, `skip` only for reduced motion. Nothing is stored. Client-side returns reset to `play` on mount, and bfcache restores replay via `pageshow`.
 - Melt (`MeltLockup`): a WebGL1 shader samples the official lockup PNG with domain-warped displacement, marbled contour bands, tears and a hard alpha threshold. Automatic cycle: 2.6s form at hand-off, then a 14.4s loop (5.4s clean, 3s melt in, 2.4s sustain, 3.6s reform). The clean PNG shows whenever the melt is idle. Mouse movement adds an optional local melt. The timeline clock pauses off screen.
 - Field (`EmberCanvas`): a WebGL1 domain-warped egg-crate lattice at about a third of the resolution, 30fps, paused off screen. Highlights are suppressed and the field darkened in the text column for contrast. The CSS gradient field is the fallback. Reduced motion draws one static frame.
-- The landing page uses no GSAP or Lenis yet. Both are installed for later pinned sections.
+- Page order: Intro, Hero, Walkthrough (`#how-it-works`), StoryStack (`#why`), ProofBento (`#proof`), RecoveryLoop (`#loop`), ClosingCta, SiteFooter. Section styles live next to their components (`walkthrough.css`, `story.css`, `bento.css`, `closing.css`, `recorded/recorded.css`), not in globals.
+- Recorded data: `RecordedCaseProvider` picks the newest RESOLVED case with a PASS receipt from `GET /api/cases`, then reads events and evidence. `recorded/beats.ts` splits events into five beats at persisted anchors and reuses `projectFloor`. No fallback data.
+- Motion: GSAP and ScrollTrigger load on demand (`scroll-motion.ts`) only when `(min-width: 1024px) and (prefers-reduced-motion: no-preference)` matches. Two pinned stages (walkthrough refreshPriority 2, story 1). Lenis is not used.
+- `HashNavigation` handles in-page anchors so router history state survives Back from `/app`.
 
 ## Nentra Floor (`/app`)
 

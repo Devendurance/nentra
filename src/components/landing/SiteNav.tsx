@@ -7,6 +7,12 @@ import { useEffect, useRef, useState } from "react";
 
 const SOURCE_URL = "https://github.com/Devendurance/nentra";
 
+const SECTIONS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#why", label: "Why Nentra" },
+  { href: "#proof", label: "Proof" },
+];
+
 export function SiteNav() {
   const [open, setOpen] = useState(false);
   const [solid, setSolid] = useState(false);
@@ -70,17 +76,19 @@ export function SiteNav() {
           />
         </a>
 
-        <ul className="hidden items-center gap-8 md:flex">
+        <ul className="hidden items-center gap-6 md:flex lg:gap-8">
+          {SECTIONS.map((s) => (
+            <li key={s.href}>
+              <a className="nav-link" href={s.href}>
+                {s.label}
+              </a>
+            </li>
+          ))}
           <li>
             <a className="nav-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
               Source
               <ArrowUpRight aria-hidden="true" size={16} />
               <span className="sr-only">(opens GitHub in a new tab)</span>
-            </a>
-          </li>
-          <li>
-            <a className="nav-link" href="#how-it-works">
-              How it works
             </a>
           </li>
           <li>
@@ -116,15 +124,17 @@ export function SiteNav() {
                 Open Nentra Floor
               </Link>
             </li>
-            <li>
-              <a
-                href="#how-it-works"
-                onClick={close}
-                className="flex min-h-14 items-center border-b border-hairline text-2xl font-medium"
-              >
-                How it works
-              </a>
-            </li>
+            {SECTIONS.map((s) => (
+              <li key={s.href}>
+                <a
+                  href={s.href}
+                  onClick={close}
+                  className="flex min-h-14 items-center border-b border-hairline text-2xl font-medium"
+                >
+                  {s.label}
+                </a>
+              </li>
+            ))}
             <li>
               <a
                 href={SOURCE_URL}

@@ -126,7 +126,8 @@ body {
   border-radius: 6px;
 }
 
-#main:focus {
+#main:focus,
+section[tabindex="-1"]:focus {
   outline: none;
 }
 

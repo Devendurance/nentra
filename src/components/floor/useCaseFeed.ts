@@ -31,7 +31,7 @@ class FeedError extends Error {
   }
 }
 
-async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
+export async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal, cache: "no-store", headers: { accept: "application/json" } });
   if (!response.ok) {
     let message = `Request failed with ${response.status}.`;

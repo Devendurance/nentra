@@ -1,0 +1,170 @@
+/* Section 04: closing CTA band and monumental footer [D] */
+
+.closing {
+  position: relative;
+  padding-top: var(--section-y);
+  background: var(--ember-black);
+  text-align: center;
+}
+
+.closing-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.closing-title {
+  max-width: 17ch;
+  margin-top: 20px;
+  font-size: clamp(36px, 5.2vw, 68px);
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.closing-lead {
+  max-width: 46ch;
+  margin-top: 18px;
+}
+
+.closing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.footer {
+  position: relative;
+  overflow: hidden;
+  padding-top: clamp(96px, 11vw, 160px);
+  background: var(--ember-black);
+  --grain: 0.18;
+}
+
+.footer-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(120% 80% at 50% 100%, #f28a2e 0%, #b5440f 38%, #1b160f 72%, #0d0b07 100%);
+  mask-image: radial-gradient(150% 100% at 50% 100%, #000 62%, transparent 86%);
+  -webkit-mask-image: radial-gradient(150% 100% at 50% 100%, #000 62%, transparent 86%);
+  transform-origin: 50% 100%;
+}
+
+@supports (animation-timeline: view()) {
+  .footer-glow {
+    animation: glow-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 45%;
+  }
+}
+
+@keyframes glow-rise {
+  from {
+    opacity: 0.4;
+    transform: translateY(18%) scaleY(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.footer-top {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  gap: 40px;
+}
+
+.footer-desc {
+  margin-top: 18px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 300;
+  color: var(--cream);
+}
+
+.footer-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+}
+
+.footer-head {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--cream);
+}
+
+.footer-cols ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--cream-80);
+  transition: color 300ms var(--ease-out);
+}
+
+.footer-link:hover {
+  color: var(--cream);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.footer-note {
+  max-width: 34ch;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--cream-80);
+}
+
+@media (min-width: 640px) {
+  .footer-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .footer-top {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) minmax(0, 0.9fr);
+    gap: 64px;
+  }
+}
+
+/* The giant official lockup bleeds off the bottom edge */
+.footer-mark {
+  position: relative;
+  z-index: 4;
+  height: calc(min(96vw, 1440px) * 267 / 1225 * 0.64);
+  margin-top: clamp(56px, 8vw, 96px);
+  overflow: hidden;
+}
+
+.footer-mark img {
+  display: block;
+  width: min(96vw, 1440px);
+  max-width: none;
+  height: auto;
+  margin-inline: auto;
+  opacity: 0.94;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-glow {
+    animation: none;
+  }
+}

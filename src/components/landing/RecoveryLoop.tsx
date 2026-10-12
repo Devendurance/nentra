@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const STAGES = [
   ["Exception", "An order can no longer move safely to its next fulfilment step."],
   ["Investigation", "Nentra checks the order context and the evidence behind the exception."],
@@ -12,7 +10,7 @@ const STAGES = [
 
 export function RecoveryLoop() {
   return (
-    <section id="how-it-works" aria-labelledby="loop-title" className="relative py-[var(--section-y)]">
+    <section id="loop" aria-labelledby="loop-title" className="relative pb-[var(--section-y)]">
       <div className="container-n">
         <div className="max-w-3xl">
           <p className="eyebrow-pill">The recovery loop</p>
@@ -20,12 +18,9 @@ export function RecoveryLoop() {
             More than an alert. A <span className="serif-accent">way forward.</span>
           </h2>
           <p className="lead mt-5 max-w-2xl">
-            Nentra does not stop at telling you that something went wrong. It investigates the context, proposes the
-            next step, asks for approval where it matters, and verifies the result.
+            The recorded run is one pass through the loop Nentra is designed to run for every exception. When recovery isn&apos;t safe
+            or possible, the loop ends with the case back in your hands, not with a guess.
           </p>
-          <Link href="/app" className="btn btn-primary mt-8">
-            Watch the NG-2048 recovery
-          </Link>
         </div>
 
         <ol className="spotlight-grid mt-14 lg:mt-20" style={{ "--cols": 4 } as React.CSSProperties}>

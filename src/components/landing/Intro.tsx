@@ -36,17 +36,28 @@ export function Intro() {
   useEffect(() => {
     const root = document.documentElement;
     const reduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (root.dataset.intro === "reveal" && !reduce()) root.dataset.intro = "play";
-    const onShow = (event: PageTransitionEvent) => {
-      if (!event.persisted || reduce()) return;
+    const restart = () => {
       revealed.current = false;
       setFinished(false);
       setLeaving(false);
       setRun((value) => value + 1);
       root.dataset.intro = "play";
     };
+    // Next keeps a visited route alive while hidden and re-runs effects when it is shown again,
+    // so a return from /app must also reset the finished overlay, not only the html flag.
+    let frame = 0;
+    if (root.dataset.intro === "reveal" && !reduce()) {
+      root.dataset.intro = "play";
+      frame = requestAnimationFrame(restart);
+    }
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted && !reduce()) restart();
+    };
     window.addEventListener("pageshow", onShow);
-    return () => window.removeEventListener("pageshow", onShow);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pageshow", onShow);
+    };
   }, []);
 
   const complete = useCallback(() => {
