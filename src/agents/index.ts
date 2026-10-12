@@ -7,8 +7,9 @@ import {
 import {
   createOpenAICompatibleClient,
   requestStructuredOutput,
-  resolveLlmConfig,
+  resolveAgentLlmConfig,
   type LlmEnvironment,
+  type LlmProvider,
   type NeatlogsIntegration,
 } from "@/integrations/llm";
 
@@ -137,6 +138,7 @@ export type AgentRunOptions = {
 export type AgentExecution<T> = {
   output: T;
   mode: "deterministic" | "llm";
+  provider?: LlmProvider;
   model?: string;
 };
 
@@ -301,7 +303,7 @@ async function runAgent<TInput, TOutput>(
     runId: (input as { runId: string }).runId,
     taskId: (input as { taskId: string }).taskId,
   }, async () => {
-    const config = resolveLlmConfig(env);
+    const config = resolveAgentLlmConfig(definition.role, env);
     let output: TOutput;
     if (!config) {
       output = definition.deterministic(input);
@@ -313,13 +315,14 @@ async function runAgent<TInput, TOutput>(
     output = await requestStructuredOutput({
       client,
       model: config.model,
+      provider: config.provider,
       schemaName: definition.schemaName,
       instructions: definition.instructions,
       input,
       outputSchema: definition.outputSchema,
     });
     definition.validate(input, output);
-    return { output, mode: "llm", model: config.model };
+    return { output, mode: "llm", provider: config.provider, model: config.model };
   });
 }
 
