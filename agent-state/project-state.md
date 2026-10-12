@@ -18,3 +18,8 @@
 - Melt (`MeltLockup`): a WebGL1 shader samples the official lockup PNG with domain-warped displacement, marbled contour bands, tears and a hard alpha threshold. Automatic cycle: 2.6s form at hand-off, then a 14.4s loop (5.4s clean, 3s melt in, 2.4s sustain, 3.6s reform). The clean PNG shows whenever the melt is idle. Mouse movement adds an optional local melt. The timeline clock pauses off screen.
 - Field (`EmberCanvas`): a WebGL1 domain-warped egg-crate lattice at about a third of the resolution, 30fps, paused off screen. Highlights are suppressed and the field darkened in the text column for contrast. The CSS gradient field is the fallback. Reduced motion draws one static frame.
 - The landing page uses no GSAP or Lenis yet. Both are installed for Phase 2 pinning.
+
+## Branch fix/neatlogs-sponsor-evidence (12 Oct 2026)
+
+- Tracing fix: safe span outputs, full suite green, build green. No policy/booking/frontend/Neon changes.
+- Evidence staged: evidence/entire/, evidence/neatlogs/tracing-correction.md, evidence/cfo/model-inputs.md. No live cfo.ai model (needs user account access).

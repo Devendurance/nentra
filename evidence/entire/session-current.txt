@@ -1,0 +1,2 @@
+This command is running inside Pi session 01a130a4-6087-7058-8876-19db92b30537, but Entire has no session state for it.
+Entire may not be enabled here, its hooks may not have run yet, or this session's first turn has not completed. Run 'entire status' to check.

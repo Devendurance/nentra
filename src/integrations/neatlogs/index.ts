@@ -58,6 +58,83 @@ const roleDetails = {
 
 const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
+const SAFE_OUTPUT_KEYS = new Set([
+  "status",
+  "result",
+  "mode",
+  "provider",
+  "model",
+  "action",
+  "decision",
+  "classification",
+  "route",
+  "eligible",
+  "requiresApproval",
+  "id",
+  "quoteId",
+  "quoteOptionId",
+  "selectedQuoteOptionId",
+  "providerCode",
+  "serviceCode",
+  "providerBookingId",
+  "amountNgn",
+  "currency",
+  "summary",
+  "reason",
+  "nextAction",
+  "resultCode",
+]);
+
+const MAX_SAFE_STRING = 500;
+
+function safeScalar(value: unknown): string | number | boolean | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    return trimmed.length > MAX_SAFE_STRING ? trimmed.slice(0, MAX_SAFE_STRING) : trimmed;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "boolean") return value;
+  return undefined;
+}
+
+function pickSafeScalars(source: Record<string, unknown>, target: Record<string, unknown>): void {
+  for (const key of SAFE_OUTPUT_KEYS) {
+    const kept = safeScalar(source[key]);
+    if (kept !== undefined) target[key] = kept;
+  }
+}
+
+/**
+ * Build a redacted span output so successful spans carry an accurate
+ * `output.value` without persisting sensitive full records.
+ *
+ * The neatlogs SDK only sets `output.value` when the trace callback returns
+ * a non-null value, and only marks a span ERROR when the callback throws.
+ * Returning `undefined` (the previous behavior) left successful spans with
+ * no output, while still correctly marking real thrown failures as ERROR.
+ */
+function toSafeSpanOutput(value: unknown): unknown {
+  if (value === undefined || value === null) return { status: "OK" };
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const kept = safeScalar(value);
+    return kept === undefined ? { status: "OK" } : kept;
+  }
+  if (Array.isArray(value)) return { status: "OK", count: value.length };
+  if (typeof value === "object") {
+    const source = value as Record<string, unknown>;
+    const summary: Record<string, unknown> = {};
+    pickSafeScalars(source, summary);
+    const nested = source.output;
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      pickSafeScalars(nested as Record<string, unknown>, summary);
+    }
+    if (summary.status === undefined) summary.status = "OK";
+    return summary;
+  }
+  return { status: "OK" };
+}
+
 function safeIdentifiers(context: TraceIdentifiers): Record<string, string> {
   const safe: Record<string, string> = {};
   for (const key of ["caseId", "runId", "taskId"] as const) {
@@ -107,7 +184,7 @@ export function createNeatlogsIntegration(
       attributes: identifiers,
     }, async () => {
       result = await operation();
-      return undefined;
+      return toSafeSpanOutput(result);
     });
     return result;
   };
@@ -125,7 +202,7 @@ export function createNeatlogsIntegration(
       attributes: identifiers,
     }, async () => {
       result = await operation();
-      return undefined;
+      return toSafeSpanOutput(result);
     });
     return result;
   };
@@ -146,7 +223,7 @@ export function createNeatlogsIntegration(
     }, async (activeSpan) => {
       traceRef = realTraceId(activeSpan.spanContext().traceId);
       result = await operation(traceRef);
-      return undefined;
+      return toSafeSpanOutput(result);
     });
     return { result, traceRef };
   };

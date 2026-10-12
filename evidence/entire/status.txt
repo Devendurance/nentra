@@ -1,0 +1,4 @@
+● Enabled · branch fix/neatlogs-sponsor-evidence
+  Agents · Pi
+  Checkpoints sync to: origin
+Agents: run `entire agent-help` for machine-readable usage.
