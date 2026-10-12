@@ -1,0 +1,1 @@
+dd275c07c91f0554d2bd916fa62e33427072ae80 fix(neatlogs): record redacted span outputs instead of undefined

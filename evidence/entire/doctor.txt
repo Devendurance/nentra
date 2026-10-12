@@ -1,0 +1,5 @@
+✓ Metadata branches: OK (no remote-tracking metadata ref found)
+
+✓ Git hooks: OK
+✓ Pi hook config: OK
+No stuck sessions found.

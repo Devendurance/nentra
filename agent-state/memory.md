@@ -21,3 +21,5 @@
 - Measure hero text contrast over time (`contrast.mjs` style sampling of saturated background pixels), not one frame, because the field moves.
 - Cream text over the brightest ember is about 4.4:1. Hero body copy stays full cream over the center scrim. Never use cream text on amber fills.
 - Logos: use the trimmed official PNGs in `public/brand/nentra/` (`nentra-lockup.png`, `nentra-mark.png`). The glass orb is atmosphere only.
+- Neatlogs wrappers must return a redacted safe summary from sdk.trace callbacks, never undefined; exceptions propagate so real failures stay ERROR. Safe keys allowlist lives in src/integrations/neatlogs/index.ts.
+- Sponsor evidence lives in evidence/ (entire status snapshots, neatlogs tracing note, cfo worksheet). Never commit credentials or dashboard secrets there.

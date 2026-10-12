@@ -26,3 +26,9 @@
 - `projection.ts` is a pure function from events to presentation state: station statuses, handoff tokens, blocker, recovery, approval, verification and outcome. Station state comes only from event type, actor, station and result code. Unit tests are in `tests/floor/`.
 - Replay is client-side. A terminal case autoplays from 0, while live or reduced-motion views follow the latest event. A run observed live doesn't rewind when it finishes. Any viewer action cancels the pending autoplay.
 - Approval amounts aren't parsed from text. The ceiling comes from `merchant.maxShippingNgn` and the verified amount from the evidence receipt.
+
+## Branch fix/neatlogs-sponsor-evidence (12 Oct 2026)
+
+- Tracing fix: safe span outputs. No policy, booking, or Neon changes. Branch adds no frontend work itself; Floor arrives via the main merge.
+- Evidence staged: evidence/entire/, evidence/neatlogs/tracing-correction.md, evidence/cfo/model-inputs.md, docs/hackathon-demo-evidence.md. No live cfo.ai model (needs user account access).
+- Entire checkpoint 01M4RDHBN8Z60Q0MVVS35EG3MK linked to commit a9d6aeb.

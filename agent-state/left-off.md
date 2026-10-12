@@ -1,4 +1,11 @@
-# Left Off
+# Left Off (branch fix/neatlogs-sponsor-evidence, integrating main 40b84d4)
+
+- Doing: final integration. Merge main Phase 2 Floor into this branch, keep all PR #3 evidence, verify, then merge PR #3.
+- Done: neatlogs wrappers now return redacted safe span outputs instead of undefined (real 503 still throws/ERROR); 4 new regression tests; cfo worksheet plus tracing note plus entire status snapshots in evidence/; judges demo guide in docs/hackathon-demo-evidence.md; Entire checkpoint 01M4RDHBN8Z60Q0MVVS35EG3MK linked to commit a9d6aeb.
+- Next: run focused tests, full suite, type-check, lint, and build. Push the reconciled branch and verify PR #3 is mergeable. Merge PR #3 only if all checks pass.
+- Known gaps: dashboard-level red aggregation after recovery is documented, not re-verified live; cfo.ai model creation needs user account access; a live post-fix demo run needs explicit permission.
+
+--- Prior landing state (main) ---
 
 - Doing: Nentra Floor (Phase 2), a read-only operations floor and replay of the persisted NG-2048 run.
 - Done (branch `frontend/phase-2-operations-floor`):

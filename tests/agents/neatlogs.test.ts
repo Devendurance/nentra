@@ -49,9 +49,101 @@ describe("neatlogs integration", () => {
     }));
     expect(spans.map((entry) => entry.options.kind)).toEqual(["AGENT", "TOOL", "WORKFLOW"]);
     expect(spans.map((entry) => entry.options.name)).toEqual(["order_investigator", "read_order_context", "recover_pre_dispatch_order"]);
-    expect(spans.every((entry) => entry.callbackValue === undefined)).toBe(true);
+    // Successful spans must carry an accurate output value so the trace callback
+    // does not leave output.value empty. The real SDK only marks ERROR on throw.
+    expect(spans.every((entry) => entry.callbackValue !== undefined)).toBe(true);
+    expect(spans[0]?.callbackValue).toBe("agent result");
+    expect(spans[1]?.callbackValue).toBe("tool result");
     const agentAttributes = spans[0]?.options.attributes as Record<string, unknown>;
     expect(agentAttributes).toEqual({ caseId: "case-2", runId: "run-2", taskId: "task-2" });
+  });
+
+  it("records a redacted safe summary for object results without sensitive fields", async () => {
+    const { sdk, spans } = fakeSdk();
+    const integration = createNeatlogsIntegration({ NEATLOGS_API_KEY: "neat-test-key" }, sdk);
+    const bookingLike = {
+      providerBookingId: "sbx-booking-abc123",
+      amountNgn: 7200,
+      providerCode: "REDSTAR_EXPRESS",
+      serviceCode: "ALTERNATIVE_STANDARD",
+      status: "BOOKED",
+      addressLine1: "12 Allen Avenue",
+      customerPhone: "+2348012345678",
+      landmark: "opposite pharmacy",
+    };
+    const result = await integration.withTool(
+      { toolName: "shipping_booking", caseId: "case-6", runId: "run-6", taskId: "task-6" },
+      async () => bookingLike,
+    );
+
+    expect(result).toEqual(bookingLike);
+    // The caller still receives the full operation result; only the span
+    // output captured by the SDK is redacted.
+    const output = spans[0]?.callbackValue as Record<string, unknown>;
+    expect(output).toMatchObject({
+      status: "BOOKED",
+      providerBookingId: "sbx-booking-abc123",
+      amountNgn: 7200,
+      providerCode: "REDSTAR_EXPRESS",
+    });
+    expect(output).not.toHaveProperty("addressLine1");
+    expect(output).not.toHaveProperty("customerPhone");
+    expect(output).not.toHaveProperty("landmark");
+  });
+
+  it("keeps agent execution summaries without leaking full records", async () => {
+    const { sdk, spans } = fakeSdk();
+    const integration = createNeatlogsIntegration({ NEATLOGS_API_KEY: "neat-test-key" }, sdk);
+    const execution = {
+      output: {
+        summary: "Found 1 eligible quote within the merchant ceiling.",
+        selectedQuoteOptionId: "quote-123",
+        addressLine1: "12 Allen Avenue",
+      },
+      mode: "deterministic",
+      provider: "groq",
+      model: "openai/gpt-oss-20b",
+    };
+    await integration.withAgent(
+      { role: "fulfillment", caseId: "case-7", runId: "run-7", taskId: "task-7" },
+      async () => execution,
+    );
+
+    const output = spans[0]?.callbackValue as Record<string, unknown>;
+    expect(output).toMatchObject({
+      status: "OK",
+      mode: "deterministic",
+      summary: "Found 1 eligible quote within the merchant ceiling.",
+    });
+    expect(output).not.toHaveProperty("addressLine1");
+  });
+
+  it("lets a real tool failure throw so the SDK marks that span ERROR", async () => {
+    const { sdk, spans } = fakeSdk();
+    const integration = createNeatlogsIntegration({ NEATLOGS_API_KEY: "neat-test-key" }, sdk);
+    const failure = Object.assign(new Error("The preferred shipping route is temporarily unavailable"), {
+      code: "PROVIDER_503",
+    });
+
+    await expect(integration.withTool(
+      { toolName: "shipping_quotes", caseId: "case-8", runId: "run-8", taskId: "task-8" },
+      async () => { throw failure; },
+    )).rejects.toBe(failure);
+    // The fake SDK only records completed callbacks, mirroring the real SDK:
+    // a thrown callback produces an ERROR span and no success output.
+    expect(spans).toHaveLength(0);
+  });
+
+  it("lets a workflow failure throw so only the failing span is marked ERROR", async () => {
+    const { sdk, spans } = fakeSdk();
+    const integration = createNeatlogsIntegration({ NEATLOGS_API_KEY: "neat-test-key" }, sdk);
+    const failure = new Error("booking step failed");
+
+    await expect(integration.withWorkflow(
+      { caseId: "case-9", runId: "run-9" },
+      async () => { throw failure; },
+    )).rejects.toBe(failure);
+    expect(spans).toHaveLength(0);
   });
 
   it("wraps the OpenAI client only when neatlogs is configured", async () => {
@@ -80,5 +172,8 @@ describe("neatlogs integration", () => {
 
     expect(spans[0]?.options.name).toBe("external_tool");
     expect(spans[0]?.options.attributes).toEqual({ caseId: "case-5", taskId: "task-5" });
+    // An undefined operation result still produces a minimal OK summary so the
+    // span has an explicit output instead of an empty value.
+    expect(spans[0]?.callbackValue).toEqual({ status: "OK" });
   });
 });

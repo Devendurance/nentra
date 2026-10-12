@@ -1,0 +1,5 @@
+  branch       fix/neatlogs-sponsor-evidence
+  checkpoints  0
+
+No checkpoints found on this branch.
+Checkpoints will appear here after you save changes during an agent session.
