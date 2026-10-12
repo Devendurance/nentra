@@ -196,6 +196,14 @@ Focus ring: `2px solid #F5B561`, offset `3px`.
 - **Ring carousel (optional, for case studies):** 7–9 cards on a ring (radius about `36vw`, tilted `rotateX(10deg)`); scroll rotates the ring; the active card centers, scales `1.15` and shows its title with a serif accent; others dim to `.55` and blur `1px`
 - **Aperture transition (use once, between the walkthrough and the features):** a vertical lens opens from a slit onto the next scene, rim `2px` Gold Glow with `0 0 16px rgba(245,181,97,.8)`; modeled on [E]'s portal
 
+### Nentra Floor (`/app`)
+- **Purpose:** watch a persisted recovery. A visitor should understand within five seconds what happened, which agent owns the work and why the outcome is verified.
+- **Layout (desktop 1280×720):** a sticky header with the lockup, order identity, case status, DEMO_SANDBOX badge and a Replay or Live mode chip. A large isometric floor sits on the left with an event caption and replay controls. A 368px decisions rail on the right shows the authoritative outcome, the current event and the decision trail. Below sit the full recorded timeline and the verification receipt.
+- **Floor:** a near-black room with a warm wall glow and an iso floor grid. Six stations sit on iso platforms with role props: the Controller hub at the center, then Investigator, Customer Liaison, Fulfillment, Recovery and Verifier around it. Customer and Merchant are external gates. Agents are small SVG figures with distinct accessories in palette colors.
+- **States:** assigned (dashed amber ring), working (amber pulse, agent at the desk), waiting (gold), failed (`#E4604A` with the recorded result code), done (cream), passed (`#8CCB86` seal). Delegations send an amber task token along the spoke.
+- **Truth rule:** every visual state comes from a persisted event. The outcome card reads the live snapshot and receipt, separate from the replay position.
+- **Responsive:** below 900px, everything stacks into a single column with a station list under the floor. Reduced motion shows the final state with no animation.
+
 ### Feature Spotlight Grid [M] (re-themed)
 - 3 columns, no gaps; cells share `1px` Hairline lines; `12px` "+" crosshair markers in Cream 40 at each cell's top-left and bottom-right corners
 - **Spotlight:** `radial-gradient(ellipse 60% 55% at 20% 0%, rgba(245,181,97,.16), transparent 70%)`; hover raises it to `.26` over `300ms`

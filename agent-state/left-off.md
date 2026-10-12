@@ -1,7 +1,16 @@
 # Left Off
 
-- Doing: landing page frontend, built in phases with visual approval between each one.
-- Done (Phase 1 + motion corrections, merged to `main` from `frontend/phase-1-intro-hero`): brand tokens and fonts, an intro that plays on every page entry, the ember-field hero with WebGL living field and automatic lockup melt cycle, nav with an accessible mobile menu, the interim "How it works" section, and the DESIGN.md corrections.
-- Verified on production build: fresh load, refresh, back navigation and revisit all replay the intro. Skip works and rerenders don't replay. The melt cycles automatically (canvas active 8-10s of every 14.4s), the field animates at 30fps, and the page holds 60fps. Reduced motion is static. 375/768/1280 have no overflow and there are no console errors. Hero copy contrast stays at 5.8:1 or better over 30s of field motion.
-- Next: wait for the user's approval to start Phase 2, the pinned walkthrough [B] driven by persisted NG-2048 events (read-only, DEMO_SANDBOX).
-- Known gaps: C's dark forms are a regular round lattice and ours are deliberately irregular per the user's brief. C's melt is active almost constantly, while ours keeps 5.4s clean holds by request.
+- Doing: Nentra Floor (Phase 2), a read-only operations floor and replay of the persisted NG-2048 run.
+- Done (branch `frontend/phase-2-operations-floor`):
+  - `/app` discovers cases via GET /api/cases. `/app/cases/[caseId]` is the same floor scoped to one case.
+  - The isometric SVG floor has six stations and agents, task-token handoffs, the failure state, a recovery branch and the verifier seal.
+  - Also built: the decisions rail, the event-strip scrubber, the full timeline with inspection, and the verification receipt.
+  - Replay supports play, pause, restart, step, scrub and 1x/2x.
+  - Cursor-polling live mode, plus loading, error, not-found and reconnecting states.
+  - Landing entry links.
+- Verified against real Neon data on the production build:
+  - 45 events rendered, and all 45 replay positions match the persisted titles. The seal appears only at #44 PASS and the banner at #45.
+  - Keyboard, refresh, case route, 404, the API-failure state (no substitute data), the live-polling harness, 390px mobile and reduced motion all pass.
+  - No non-GET requests and no secrets in the client bundle. 107/107 tests pass.
+- Next: wait for the user's instruction. Candidate next slice is an operator-authenticated new run, the customer correction form and approval controls.
+- Known issues: each public API read takes about 3-5s from this machine to Neon, so the first floor load takes about 8-10s. Provider and model attribution (Groq or DeepSeek) isn't exposed by the public API, so the floor doesn't show it.
