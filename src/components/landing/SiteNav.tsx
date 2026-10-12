@@ -2,6 +2,7 @@
 
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const SOURCE_URL = "https://github.com/Devendurance/nentra";
@@ -78,9 +79,14 @@ export function SiteNav() {
             </a>
           </li>
           <li>
-            <a className="btn btn-outline btn-sm" href="#how-it-works">
+            <a className="nav-link" href="#how-it-works">
               How it works
             </a>
+          </li>
+          <li>
+            <Link className="btn btn-outline btn-sm" href="/app">
+              Open Nentra Floor
+            </Link>
           </li>
         </ul>
 
@@ -101,8 +107,17 @@ export function SiteNav() {
         <div id="mobile-menu" className="mobile-menu md:hidden">
           <ul className="container-n flex flex-col py-4">
             <li>
-              <a
+              <Link
                 ref={firstLinkRef}
+                href="/app"
+                onClick={close}
+                className="flex min-h-14 items-center border-b border-hairline text-2xl font-medium"
+              >
+                Open Nentra Floor
+              </Link>
+            </li>
+            <li>
+              <a
                 href="#how-it-works"
                 onClick={close}
                 className="flex min-h-14 items-center border-b border-hairline text-2xl font-medium"

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const STAGES = [
   ["Exception", "An order can no longer move safely to its next fulfilment step."],
   ["Investigation", "Nentra checks the order context and the evidence behind the exception."],
@@ -21,6 +23,9 @@ export function RecoveryLoop() {
             Nentra does not stop at telling you that something went wrong. It investigates the context, proposes the
             next step, asks for approval where it matters, and verifies the result.
           </p>
+          <Link href="/app" className="btn btn-primary mt-8">
+            Watch the NG-2048 recovery
+          </Link>
         </div>
 
         <ol className="spotlight-grid mt-14 lg:mt-20" style={{ "--cols": 4 } as React.CSSProperties}>
