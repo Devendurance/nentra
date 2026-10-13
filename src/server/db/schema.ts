@@ -121,6 +121,12 @@ export const correctionStatusEnum = pgEnum("correction_status", [
   "EXPIRED",
   "REVOKED",
 ]);
+export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
+  "PENDING",
+  "SENT",
+  "FAILED",
+  "SKIPPED",
+]);
 export const approvalStatusEnum = pgEnum("approval_status", [
   "PENDING",
   "APPROVED",
@@ -367,6 +373,33 @@ export const correctionRequests = pgTable(
     uniqueIndex("correction_requests_one_pending_per_case_uidx")
       .on(table.caseId)
       .where(sql`${table.status} = 'PENDING'`),
+  ],
+);
+
+export const whatsappMessages = pgTable(
+  "whatsapp_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    correctionRequestId: uuid("correction_request_id")
+      .notNull()
+      .references(() => correctionRequests.id, { onDelete: "cascade" }),
+    idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull().unique(),
+    templateName: varchar("template_name", { length: 120 }).notNull(),
+    templateLanguage: varchar("template_language", { length: 16 }).notNull(),
+    status: whatsappMessageStatusEnum("status").notNull().default("PENDING"),
+    providerMessageId: varchar("provider_message_id", { length: 160 }),
+    recipientHash: varchar("recipient_hash", { length: 128 }).notNull(),
+    errorCode: varchar("error_code", { length: 160 }),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    ...timestamps(),
+  },
+  (table) => [
+    index("whatsapp_messages_case_status_idx").on(table.caseId, table.status),
+    index("whatsapp_messages_correction_idx").on(table.correctionRequestId),
+    check("whatsapp_messages_attempt_nonnegative_check", sql`${table.attemptCount} >= 0`),
   ],
 );
 
@@ -649,6 +682,7 @@ export const schema = {
   quoteOptions,
   runs,
   toolAttempts,
+  whatsappMessages,
 };
 
 export type Merchant = typeof merchants.$inferSelect;
@@ -665,6 +699,8 @@ export type CaseEvent = typeof caseEvents.$inferSelect;
 export type NewCaseEvent = typeof caseEvents.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type NewWhatsappMessage = typeof whatsappMessages.$inferInsert;
 export type ClaimedJob = Job & {
   state: "RUNNING";
   leaseOwner: string;

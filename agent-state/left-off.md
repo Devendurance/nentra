@@ -1,14 +1,13 @@
 # Left Off
 
-- Doing: landing sections 02 to 04 on branch `frontend/landing-sections-02-04`, PR open and waiting for the user's visual approval. Do not merge before approval.
+- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison` (based on origin/main 04626d3). P6.1 done, P6.2 next. Do not merge before approval.
 - Done:
-  - Section 02: pinned walkthrough of the recorded run (`Walkthrough`, `PhoneScreen`, `recorded/beats.ts`), GSAP ScrollTrigger on desktop only, stacked on mobile and reduced motion.
-  - Section 03: five stacked story scenes with one aperture transition (`StoryStack`), proof bento from real API data (`ProofBento`), existing `RecoveryLoop` kept as the general loop (`#loop`).
-  - Section 04: closing CTA and monumental footer (`Closing.tsx`).
-  - Fixes found in the browser: Back from `/app` after clicking an in-page anchor left the floor on screen with the landing unreachable (now `HashNavigation`), and the intro overlay didn't replay on a client-side return because Next keeps the route alive (Intro now resets on re-entry).
-  - Verified on the production build: pin, unpin, reverse, keyboard index and pager, refresh, back navigation, API failure and empty states, reduced motion, no overflow at 375/390/768/1280/1440, no non-GET requests, no secrets in the client bundle. 120/120 tests.
-- Next: wait for visual approval, then merge. Later slices: live workflow controls, customer correction and approval (need operator auth).
+  - P6.1: Meta Cloud API template sender (`src/integrations/whatsapp`), disabled by default, injectable transport, transient/permanent/ambiguous classification.
+  - P6.1: `whatsapp_messages` table + migration `0002_tidy_chameleon.sql`, idempotent insert-or-return by idempotency key.
+  - P6.1: `requestCorrectionViaWhatsapp` service reuses pending correction request, persists SENT/SKIPPED/FAILED + sanitized liaison event, never resends, keeps scoped-form fallback.
+  - Verified: 5/5 new tests, type-check, lint, production build all clean.
+- Next: P6.2 inbound webhook + correlation + resumption. First gap: recipient phone + consent sourcing (orders has no phone/consent fields).
 - Known issues:
-  - Neon reads from this machine take 5 to 14s each and the public API sometimes returns 500, so the recorded panels can take 25 to 75s to fill. They show loading and retry states meanwhile.
-  - Next prefetches `/app`'s stylesheet from the landing's `/app` links, which logs a harmless "preloaded but not used" warning.
-  - A browser refresh lands near the top (the intro replays) rather than restoring a mid-page position.
+  - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
+  - No real WhatsApp delivery tested. Production sending stays disabled.
+  - Landing sections 02-04 work merged via PR #5. Recorded NG-2048 case untouched.

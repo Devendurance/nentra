@@ -15,6 +15,13 @@
       "when": 1791788869018,
       "tag": "0001_sticky_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791909860283,
+      "tag": "0002_tidy_chameleon",
+      "breakpoints": true
     }
   ]
 }

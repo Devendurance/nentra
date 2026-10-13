@@ -48,6 +48,7 @@ import {
   quoteOptions,
   runs,
   toolAttempts,
+  whatsappMessages,
   type AgentTask,
   type ClaimedJob,
   type CaseRecord,
@@ -1088,6 +1089,61 @@ export class DemoRepository implements ShippingStore {
       .where(and(eq(correctionRequests.caseId, caseId), eq(correctionRequests.status, "PENDING")))
       .orderBy(desc(correctionRequests.createdAt)).limit(1);
     return row ?? null;
+  }
+
+  async getWhatsappMessageByIdempotencyKey(idempotencyKey: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.idempotencyKey, idempotencyKey)).limit(1);
+    return row ?? null;
+  }
+
+  async insertWhatsappMessagePending(input: {
+    caseId: string;
+    correctionRequestId: string;
+    idempotencyKey: string;
+    templateName: string;
+    templateLanguage: string;
+    recipientHash: string;
+  }) {
+    const existing = await this.getWhatsappMessageByIdempotencyKey(input.idempotencyKey);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(whatsappMessages).values({
+        caseId: input.caseId,
+        correctionRequestId: input.correctionRequestId,
+        idempotencyKey: input.idempotencyKey,
+        templateName: input.templateName,
+        templateLanguage: input.templateLanguage,
+        recipientHash: input.recipientHash,
+        status: "PENDING",
+        attemptCount: 0,
+      }).returning();
+      if (!record) throw new Error("Could not record WhatsApp message");
+      return { record, created: true };
+    } catch {
+      const raced = await this.getWhatsappMessageByIdempotencyKey(input.idempotencyKey);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record WhatsApp message");
+    }
+  }
+
+  async updateWhatsappMessageStatus(
+    id: string,
+    patch: {
+      status: "SENT" | "FAILED" | "SKIPPED";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: patch.status,
+      providerMessageId: patch.providerMessageId ?? null,
+      errorCode: patch.errorCode ?? null,
+      attemptCount: sql`${whatsappMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(whatsappMessages.id, id)).returning();
+    if (!record) throw error(404, "WHATSAPP_MESSAGE_NOT_FOUND", "The WhatsApp message was not found.");
+    return record;
   }
 
   async updateBookingOutcome(input: {
