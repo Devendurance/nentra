@@ -18,6 +18,7 @@ import {
   type CommitJobStepInput,
 } from "@/server/db/repository";
 import type { ClaimedJob } from "@/server/db/schema";
+import { requestCorrectionViaWhatsapp } from "@/server/whatsapp/outbound";
 
 export type CoordinatorOptions = {
   repository: DemoRepository;
@@ -238,6 +239,18 @@ async function liaison(options: CoordinatorOptions, context: CaseContext): Promi
     }],
     runStatus: "WAITING",
   });
+  try {
+    if ((process.env.WHATSAPP_ENABLED ?? "").trim().toLowerCase() === "true") {
+      await requestCorrectionViaWhatsapp({
+        repository: options.repository,
+        caseId: context.caseRecord.id,
+        env: process.env,
+      });
+    }
+  } catch {
+    // The scoped correction form remains the fallback; a WhatsApp failure
+    // must never stall the waiting-customer state.
+  }
 }
 
 async function primaryQuote(options: CoordinatorOptions, context: CaseContext): Promise<void> {

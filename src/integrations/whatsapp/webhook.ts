@@ -103,6 +103,7 @@ export interface NormalizedInboundMessage {
 export interface NormalizedInboundStatus {
   providerMessageId: string;
   statusValue: string;
+  statusTimestamp: string | null;
   businessPhoneNumberId: string;
 }
 
@@ -134,6 +135,7 @@ export function parseWebhookEnvelope(payload: unknown): NormalizedWebhook {
         result.statuses.push({
           providerMessageId: status.id,
           statusValue: status.status,
+          statusTimestamp: status.timestamp ?? null,
           businessPhoneNumberId,
         });
       }

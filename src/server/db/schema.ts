@@ -123,10 +123,13 @@ export const correctionStatusEnum = pgEnum("correction_status", [
 ]);
 export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
   "PENDING",
+  "SENDING",
   "SENT",
   "DELIVERED",
   "READ",
   "FAILED",
+  "RETRYABLE",
+  "NEEDS_REVIEW",
   "SKIPPED",
 ]);
 export const contactConsentStatusEnum = pgEnum("contact_consent_status", [

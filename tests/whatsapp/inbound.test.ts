@@ -40,6 +40,7 @@ function baseEnv(): NodeJS.ProcessEnv {
     WHATSAPP_TEMPLATE_LANGUAGE: "en",
     WHATSAPP_APP_SECRET: APP_SECRET,
     WHATSAPP_CONTACT_HMAC_KEY: HMAC_KEY,
+    WHATSAPP_CONTACT_ENCRYPTION_KEY: ENC_KEY,
   } as unknown as NodeJS.ProcessEnv;
 }
 
@@ -138,11 +139,11 @@ describe("WhatsApp inbound webhook and correction", () => {
   });
 
   async function sendOutbound(repository: DemoRepository, caseId: string) {
+    const snapshot = (await repository.getCaseSnapshot(caseId))!;
+    await provision(repository, snapshot.order.id);
     return requestCorrectionViaWhatsapp({
       repository,
       caseId,
-      toPhoneE164: CUSTOMER_PHONE,
-      customerConsented: true,
       env: baseEnv(),
       transport: sentTransport,
     });

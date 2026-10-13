@@ -4,7 +4,8 @@ export type WhatsappSendClassification =
   | "SENT"
   | "TRANSIENT_SEND"
   | "PERMANENT_SEND"
-  | "AMBIGUOUS_SEND";
+  | "AMBIGUOUS_SEND"
+  | "UNKNOWN_SEND";
 
 export interface WhatsappConfig {
   enabled: boolean;
@@ -115,7 +116,7 @@ export interface WhatsappSendSuccess {
 }
 
 export interface WhatsappSendFailure {
-  outcome: "TRANSIENT_SEND" | "PERMANENT_SEND" | "AMBIGUOUS_SEND";
+  outcome: "TRANSIENT_SEND" | "PERMANENT_SEND" | "AMBIGUOUS_SEND" | "UNKNOWN_SEND";
   errorCode: string;
   statusCode?: number;
 }
@@ -182,7 +183,7 @@ export async function sendCorrectionTemplate(
       timeoutMs: config.timeoutMs,
     });
   } catch {
-    return { outcome: "TRANSIENT_SEND", errorCode: "TRANSPORT_ERROR" };
+    return { outcome: "UNKNOWN_SEND", errorCode: "TRANSPORT_ERROR" };
   }
   if (response.status >= 200 && response.status < 300) {
     const messages = (response.bodyJson as { messages?: Array<{ id?: unknown }> } | null)?.messages;

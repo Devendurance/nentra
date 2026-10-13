@@ -73,7 +73,7 @@ export async function processWhatsappWebhook(
   for (const status of envelope.statuses) {
     if (!businessPhoneNumberId || status.businessPhoneNumberId !== businessPhoneNumberId) {
       const { record } = await repository.recordInboundEvent({
-        providerMessageId: `status:${status.providerMessageId}`,
+        providerMessageId: `status:${status.providerMessageId}:mismatch`,
         kind: "STATUS",
         statusValue: status.statusValue,
         resultCode: "BUSINESS_ID_MISMATCH",
@@ -86,14 +86,40 @@ export async function processWhatsappWebhook(
       : status.statusValue === "read" ? "READ"
       : status.statusValue === "failed" ? "FAILED"
       : null;
-    const { record } = await repository.recordInboundEvent({
-      providerMessageId: `status:${status.providerMessageId}`,
+    const notificationKey = `status:${status.providerMessageId}:${status.statusValue}:${status.statusTimestamp ?? "no-ts"}`;
+    const { record, created } = await repository.recordInboundEvent({
+      providerMessageId: notificationKey,
       kind: "STATUS",
       statusValue: status.statusValue,
       resultCode: mapped ? "STATUS_RECORDED" : "STATUS_IGNORED",
     });
+    if (!created) {
+      processed.push({ providerMessageId: record.providerMessageId, result: "DUPLICATE_ACK" });
+      continue;
+    }
     if (mapped) {
-      await repository.updateWhatsappMessageFromStatus(status.providerMessageId, mapped);
+      const transition = await repository.updateWhatsappMessageFromStatus(status.providerMessageId, mapped);
+      if (transition.applied && transition.message) {
+        const snapshot = await repository.getCaseSnapshot(transition.message.caseId);
+        if (snapshot?.run) {
+          await repository.transaction(async (tx) => {
+            await appendEventTx(tx, {
+              caseId: transition.message!.caseId,
+              runId: snapshot.run!.id,
+              type: "TOOL_CALLED",
+              actor: "liaison",
+              payload: {
+                title: `WhatsApp message ${mapped.toLowerCase()}`,
+                summary: mapped === "FAILED"
+                  ? "The provider reported that the WhatsApp message failed. The scoped correction form remains available."
+                  : `The provider reported the WhatsApp message as ${mapped.toLowerCase()}. This is provider telemetry, not proof the customer replied.`,
+                station: "liaison",
+                resultCode: `WHATSAPP_${mapped}`,
+              },
+            });
+          });
+        }
+      }
     }
     processed.push({ providerMessageId: record.providerMessageId, result: record.resultCode });
   }

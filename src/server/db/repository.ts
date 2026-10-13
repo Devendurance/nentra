@@ -655,19 +655,76 @@ export class DemoRepository implements ShippingStore {
     providerMessageId: string,
     next: "DELIVERED" | "READ" | "FAILED",
   ) {
-    const current = await this.getWhatsappMessageByProviderId(providerMessageId);
-    if (!current) return null;
-    const forward =
-      (current.status === "SENT" || current.status === "PENDING") &&
-      (next === "FAILED" || next === "DELIVERED" || (next === "READ" && current.status === "SENT")) ||
-      (current.status === "DELIVERED" && next === "READ");
-    if (!forward) return current;
+    const [current] = await this.db.select({ id: whatsappMessages.id }).from(whatsappMessages)
+      .where(eq(whatsappMessages.providerMessageId, providerMessageId)).limit(1);
+    if (!current) return { applied: false as const, message: null };
+    const allowedFrom =
+      next === "READ"
+        ? ["SENT", "DELIVERED", "NEEDS_REVIEW"]
+        : ["PENDING", "SENT", "NEEDS_REVIEW"];
     const [updated] = await this.db.update(whatsappMessages).set({
       status: next,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, current.id),
+      inArray(whatsappMessages.status, allowedFrom as Array<"PENDING" | "SENT" | "DELIVERED" | "NEEDS_REVIEW">),
+    )).returning();
+    if (!updated) {
+      const [latest] = await this.db.select().from(whatsappMessages)
+        .where(eq(whatsappMessages.id, current.id)).limit(1);
+      return { applied: false as const, message: latest ?? null };
+    }
+    return { applied: true as const, message: updated };
+  }
+
+  async claimWhatsappSend(messageId: string) {
+    const [claimed] = await this.db.update(whatsappMessages).set({
+      status: "SENDING",
       attemptCount: sql`${whatsappMessages.attemptCount} + 1`,
       updatedAt: new Date(),
-    }).where(eq(whatsappMessages.id, current.id)).returning();
-    return updated ?? current;
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      inArray(whatsappMessages.status, ["PENDING", "RETRYABLE"]),
+    )).returning();
+    return claimed ?? null;
+  }
+
+  async finalizeWhatsappSend(
+    messageId: string,
+    result: {
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: result.status,
+      providerMessageId: result.providerMessageId ?? null,
+      errorCode: result.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      eq(whatsappMessages.status, "SENDING"),
+    )).returning();
+    if (!record) throw error(409, "WHATSAPP_SEND_NOT_CLAIMED", "The WhatsApp send is no longer owned by this worker.");
+    return record;
+  }
+
+  async resolveWhatsappNeedsReview(
+    messageId: string,
+    resolution: { to: "PENDING" | "SENT"; providerMessageId?: string; errorCode?: string },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: resolution.to,
+      providerMessageId: resolution.providerMessageId ?? null,
+      errorCode: resolution.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      eq(whatsappMessages.status, "NEEDS_REVIEW"),
+    )).returning();
+    if (!record) throw error(409, "WHATSAPP_NOT_AWAITING_REVIEW", "The WhatsApp message is not awaiting review.");
+    return record;
   }
 
   async decideApproval(
@@ -1241,7 +1298,7 @@ export class DemoRepository implements ShippingStore {
   async updateWhatsappMessageStatus(
     id: string,
     patch: {
-      status: "SENT" | "FAILED" | "SKIPPED";
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW" | "SKIPPED";
       providerMessageId?: string;
       errorCode?: string;
     },

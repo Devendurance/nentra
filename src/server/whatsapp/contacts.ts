@@ -104,6 +104,15 @@ export async function provisionCustomerContact(
   return created;
 }
 
+export async function getContactForOrder(
+  repository: DemoRepository,
+  orderId: string,
+): Promise<CustomerContact | null> {
+  const [contact] = await repository.db.select().from(customerContacts)
+    .where(eq(customerContacts.orderId, orderId)).limit(1);
+  return contact ?? null;
+}
+
 export async function findContactsBySender(
   repository: DemoRepository,
   senderE164: string,
