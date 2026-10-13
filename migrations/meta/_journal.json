@@ -22,6 +22,20 @@
       "when": 1791909860283,
       "tag": "0002_tidy_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791912934960,
+      "tag": "0003_curved_professor_monster",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791913070178,
+      "tag": "0004_salty_nighthawk",
+      "breakpoints": true
     }
   ]
 }

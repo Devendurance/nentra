@@ -48,6 +48,7 @@ import {
   quoteOptions,
   runs,
   toolAttempts,
+  whatsappInboundEvents,
   whatsappMessages,
   type AgentTask,
   type ClaimedJob,
@@ -227,6 +228,58 @@ function requireCurrentLease(job: Job | undefined, workerId: string, leaseToken:
 
 function error(status: number, code: string, message: string): HttpError {
   return new HttpError(status, code, message);
+}
+
+async function applyCorrectionTx(
+  tx: RepositoryTransaction,
+  request: { id: string; caseId: string },
+  input: { houseNumber?: string; street?: string; area?: string; landmark?: string },
+): Promise<string> {
+  const row = await lockCase(tx, request.caseId);
+  if (row.status !== "WAITING_CUSTOMER" || !row.activeRunId) {
+    throw error(409, "CASE_NOT_WAITING_FOR_CUSTOMER", "The case is not waiting for this correction.");
+  }
+  const now = new Date();
+  const [order] = await tx.select().from(orders).where(eq(orders.id, row.orderId)).for("update").limit(1);
+  if (!order) throw error(404, "ORDER_NOT_FOUND", "Order was not found.");
+  const address = { ...objectValue(order.addressJson) };
+  const houseNumber = input.houseNumber;
+  const street = input.street;
+  if (houseNumber || street) {
+    const existingStreet = typeof address.addressLine1 === "string" ? address.addressLine1 : "";
+    address.addressLine1 = [houseNumber, street].filter(Boolean).join(" ") || existingStreet;
+  }
+  if (input.area) address.area = input.area;
+  if (input.landmark) address.landmark = input.landmark;
+
+  if (missingDeliveryFields(address).length > 0) {
+    throw error(422, "CORRECTION_INCOMPLETE", "All required delivery details must be present before quote review can resume.");
+  }
+
+  await tx.update(orders).set({ addressJson: address, updatedAt: now }).where(eq(orders.id, order.id));
+  await tx.update(correctionRequests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(correctionRequests.id, request.id));
+  await tx.update(agentTasks).set({ status: "COMPLETED", outputJson: { result: "CUSTOMER_INPUT_RECEIVED" }, finishedAt: now, updatedAt: now })
+    .where(and(eq(agentTasks.runId, row.activeRunId), eq(agentTasks.role, "liaison"), eq(agentTasks.status, "WAITING")));
+  const afterCustomer = await transitionCaseTx(tx, row, {
+    to: "TRIAGING",
+    actor: "customer",
+    type: "CUSTOMER_INPUT_RECEIVED",
+    payload: { title: "Address detail received", summary: "The requested fictional delivery landmark was added.", station: "liaison", nextAction: "Continue quote evaluation" },
+  }, row.activeRunId);
+  await transitionCaseTx(tx, afterCustomer, {
+    to: "QUOTING",
+    actor: "controller",
+    type: "PLAN_CREATED",
+    payload: { title: "Quote review resumed", summary: "The corrected address is ready for eligible shipping quotes.", station: "controller", nextAction: "Request the preferred shipping quote" },
+  }, row.activeRunId);
+  await tx.update(runs).set({ status: "RUNNING", updatedAt: now }).where(eq(runs.id, row.activeRunId));
+  await insertJobTx(tx, {
+    caseId: row.id,
+    runId: row.activeRunId,
+    step: "fulfillment_primary",
+    dedupeKey: `${row.activeRunId}:fulfillment_primary:1`,
+  });
+  return row.id;
 }
 
 export class DemoRepository implements ShippingStore {
@@ -506,50 +559,7 @@ export class DemoRepository implements ShippingStore {
         return null;
       }
 
-      const row = await lockCase(tx, request.caseId);
-      if (row.status !== "WAITING_CUSTOMER" || !row.activeRunId) {
-        throw error(409, "CASE_NOT_WAITING_FOR_CUSTOMER", "The case is not waiting for this correction.");
-      }
-      const [order] = await tx.select().from(orders).where(eq(orders.id, row.orderId)).for("update").limit(1);
-      if (!order) throw error(404, "ORDER_NOT_FOUND", "Order was not found.");
-      const address = { ...objectValue(order.addressJson) };
-      const houseNumber = input.houseNumber;
-      const street = input.street;
-      if (houseNumber || street) {
-        const existingStreet = typeof address.addressLine1 === "string" ? address.addressLine1 : "";
-        address.addressLine1 = [houseNumber, street].filter(Boolean).join(" ") || existingStreet;
-      }
-      if (input.area) address.area = input.area;
-      if (input.landmark) address.landmark = input.landmark;
-
-      if (missingDeliveryFields(address).length > 0) {
-        throw error(422, "CORRECTION_INCOMPLETE", "All required delivery details must be present before quote review can resume.");
-      }
-
-      await tx.update(orders).set({ addressJson: address, updatedAt: now }).where(eq(orders.id, order.id));
-      await tx.update(correctionRequests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(correctionRequests.id, request.id));
-      await tx.update(agentTasks).set({ status: "COMPLETED", outputJson: { result: "CUSTOMER_INPUT_RECEIVED" }, finishedAt: now, updatedAt: now })
-        .where(and(eq(agentTasks.runId, row.activeRunId), eq(agentTasks.role, "liaison"), eq(agentTasks.status, "WAITING")));
-      const afterCustomer = await transitionCaseTx(tx, row, {
-        to: "TRIAGING",
-        actor: "customer",
-        type: "CUSTOMER_INPUT_RECEIVED",
-        payload: { title: "Address detail received", summary: "The requested fictional delivery landmark was added.", station: "liaison", nextAction: "Continue quote evaluation" },
-      }, row.activeRunId);
-      await transitionCaseTx(tx, afterCustomer, {
-        to: "QUOTING",
-        actor: "controller",
-        type: "PLAN_CREATED",
-        payload: { title: "Quote review resumed", summary: "The corrected address is ready for eligible shipping quotes.", station: "controller", nextAction: "Request the preferred shipping quote" },
-      }, row.activeRunId);
-      await tx.update(runs).set({ status: "RUNNING", updatedAt: now }).where(eq(runs.id, row.activeRunId));
-      await insertJobTx(tx, {
-        caseId: row.id,
-        runId: row.activeRunId,
-        step: "fulfillment_primary",
-        dedupeKey: `${row.activeRunId}:fulfillment_primary:1`,
-      });
-      return row.id;
+      return applyCorrectionTx(tx, { id: request.id, caseId: request.caseId }, input);
     });
 
     if (!caseId) throw error(403, "CORRECTION_TOKEN_EXPIRED", "The correction token has expired.");
@@ -557,6 +567,107 @@ export class DemoRepository implements ShippingStore {
     const snapshot = await this.getCaseSnapshot(caseId);
     if (!snapshot) throw error(404, "CASE_NOT_FOUND", "Case was not found.");
     return snapshot;
+  }
+
+  async applyWhatsappCorrectionByRequestId(
+    requestId: string,
+    rawInput: unknown,
+  ): Promise<{ outcome: "APPLIED" | "EXPIRED" | "ALREADY_RESOLVED"; caseId: string | null }> {
+    const input = correctionInputSchema.parse(rawInput);
+    return this.transaction(async (tx) => {
+      const [request] = await tx.select().from(correctionRequests)
+        .where(eq(correctionRequests.id, requestId)).for("update").limit(1);
+      if (!request || request.status !== "PENDING") {
+        return { outcome: "ALREADY_RESOLVED" as const, caseId: request?.caseId ?? null };
+      }
+      const now = new Date();
+      if (request.expiresAt.getTime() <= now.getTime()) {
+        await tx.update(correctionRequests).set({ status: "EXPIRED", updatedAt: now }).where(eq(correctionRequests.id, request.id));
+        return { outcome: "EXPIRED" as const, caseId: request.caseId };
+      }
+      const caseId = await applyCorrectionTx(tx, { id: request.id, caseId: request.caseId }, input);
+      return { outcome: "APPLIED" as const, caseId };
+    });
+  }
+
+  async getPendingCorrectionsForOrder(orderId: string) {
+    return this.db.select({
+      requestId: correctionRequests.id,
+      caseId: correctionRequests.caseId,
+      activeRunId: cases.activeRunId,
+      expiresAt: correctionRequests.expiresAt,
+      caseStatus: cases.status,
+    }).from(correctionRequests)
+      .innerJoin(cases, eq(cases.id, correctionRequests.caseId))
+      .where(and(eq(cases.orderId, orderId), eq(correctionRequests.status, "PENDING")));
+  }
+
+  async recordInboundEvent(input: {
+    providerMessageId: string;
+    kind: "MESSAGE" | "STATUS";
+    statusValue?: string;
+    senderLookupHash?: string | null;
+    resultCode?: string;
+  }) {
+    const [existing] = await this.db.select().from(whatsappInboundEvents)
+      .where(eq(whatsappInboundEvents.providerMessageId, input.providerMessageId)).limit(1);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(whatsappInboundEvents).values({
+        providerMessageId: input.providerMessageId,
+        kind: input.kind,
+        statusValue: input.statusValue ?? null,
+        senderLookupHash: input.senderLookupHash ?? null,
+        resultCode: input.resultCode ?? "RECEIVED",
+      }).returning();
+      if (!record) throw new Error("Could not record inbound event");
+      return { record, created: true };
+    } catch {
+      const [raced] = await this.db.select().from(whatsappInboundEvents)
+        .where(eq(whatsappInboundEvents.providerMessageId, input.providerMessageId)).limit(1);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record inbound event");
+    }
+  }
+
+  async updateInboundEventResult(
+    id: string,
+    patch: { resultCode: string; caseId?: string | null; correctionRequestId?: string | null; statusValue?: string | null },
+  ) {
+    const [record] = await this.db.update(whatsappInboundEvents).set({
+      resultCode: patch.resultCode,
+      caseId: patch.caseId ?? null,
+      correctionRequestId: patch.correctionRequestId ?? null,
+      statusValue: patch.statusValue ?? null,
+      updatedAt: new Date(),
+    }).where(eq(whatsappInboundEvents.id, id)).returning();
+    if (!record) throw error(404, "WHATSAPP_INBOUND_NOT_FOUND", "The inbound event was not found.");
+    return record;
+  }
+
+  async getWhatsappMessageByProviderId(providerMessageId: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.providerMessageId, providerMessageId)).limit(1);
+    return row ?? null;
+  }
+
+  async updateWhatsappMessageFromStatus(
+    providerMessageId: string,
+    next: "DELIVERED" | "READ" | "FAILED",
+  ) {
+    const current = await this.getWhatsappMessageByProviderId(providerMessageId);
+    if (!current) return null;
+    const forward =
+      (current.status === "SENT" || current.status === "PENDING") &&
+      (next === "FAILED" || next === "DELIVERED" || (next === "READ" && current.status === "SENT")) ||
+      (current.status === "DELIVERED" && next === "READ");
+    if (!forward) return current;
+    const [updated] = await this.db.update(whatsappMessages).set({
+      status: next,
+      attemptCount: sql`${whatsappMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(whatsappMessages.id, current.id)).returning();
+    return updated ?? current;
   }
 
   async decideApproval(

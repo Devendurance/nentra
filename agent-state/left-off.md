@@ -1,12 +1,12 @@
 # Left Off
 
-- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison` (based on origin/main 04626d3). P6.1 done, P6.2 next. Do not merge before approval.
+- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison` (based on origin/main 04626d3). P6.1 and P6.2 done, P6.3 next. Do not merge before approval.
 - Done:
-  - P6.1: Meta Cloud API template sender (`src/integrations/whatsapp`), disabled by default, injectable transport, transient/permanent/ambiguous classification.
-  - P6.1: `whatsapp_messages` table + migration `0002_tidy_chameleon.sql`, idempotent insert-or-return by idempotency key.
-  - P6.1: `requestCorrectionViaWhatsapp` service reuses pending correction request, persists SENT/SKIPPED/FAILED + sanitized liaison event, never resends, keeps scoped-form fallback.
-  - Verified: 5/5 new tests, type-check, lint, production build all clean.
-- Next: P6.2 inbound webhook + correlation + resumption. First gap: recipient phone + consent sourcing (orders has no phone/consent fields).
+  - P6.2: customer_contacts (HMAC-SHA256 lookup, AES-256-GCM number, OPTED_IN/OPTED_OUT with provenance) plus internal operator provisioning, no public route.
+  - P6.2: verified webhook route (GET challenge, POST HMAC-SHA256 over raw bytes, constant-time compare), deduped inbound events, delivered/read/failed status recording with monotonic guard.
+  - P6.2: reply-context plus single-candidate correlation, `landmark:` constrained replies through the shared correction core, same-run resumption to RESOLVED with one booking, token endpoint untouched.
+  - Verified: 9/9 new inbound tests plus 5/5 P6.1 tests, type-check, lint, production build clean.
+- Next: P6.3 retries and idempotency hardening. Real sending stays disabled until the concurrent-send race and uncertain-outcome reconciliation are fixed.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.

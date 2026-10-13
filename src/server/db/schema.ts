@@ -124,8 +124,18 @@ export const correctionStatusEnum = pgEnum("correction_status", [
 export const whatsappMessageStatusEnum = pgEnum("whatsapp_message_status", [
   "PENDING",
   "SENT",
+  "DELIVERED",
+  "READ",
   "FAILED",
   "SKIPPED",
+]);
+export const contactConsentStatusEnum = pgEnum("contact_consent_status", [
+  "OPTED_IN",
+  "OPTED_OUT",
+]);
+export const whatsappInboundKindEnum = pgEnum("whatsapp_inbound_kind", [
+  "MESSAGE",
+  "STATUS",
 ]);
 export const approvalStatusEnum = pgEnum("approval_status", [
   "PENDING",
@@ -403,6 +413,47 @@ export const whatsappMessages = pgTable(
   ],
 );
 
+export const customerContacts = pgTable(
+  "customer_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" })
+      .unique(),
+    lookupHash: varchar("lookup_hash", { length: 128 }).notNull(),
+    phoneIv: varchar("phone_iv", { length: 64 }).notNull(),
+    phoneCiphertext: text("phone_ciphertext").notNull(),
+    consentStatus: contactConsentStatusEnum("consent_status").notNull().default("OPTED_OUT"),
+    consentProvenance: varchar("consent_provenance", { length: 120 }).notNull(),
+    provisionedBy: varchar("provisioned_by", { length: 120 }).notNull(),
+    consentedAt: timestamp("consented_at", { withTimezone: true, mode: "date" }),
+    ...timestamps(),
+  },
+  (table) => [
+    index("customer_contacts_lookup_hash_idx").on(table.lookupHash),
+  ],
+);
+
+export const whatsappInboundEvents = pgTable(
+  "whatsapp_inbound_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerMessageId: varchar("provider_message_id", { length: 160 }).notNull().unique(),
+    kind: whatsappInboundKindEnum("kind").notNull(),
+    statusValue: varchar("status_value", { length: 40 }),
+    senderLookupHash: varchar("sender_lookup_hash", { length: 128 }),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
+    correctionRequestId: uuid("correction_request_id")
+      .references(() => correctionRequests.id, { onDelete: "cascade" }),
+    resultCode: varchar("result_code", { length: 120 }).notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    index("whatsapp_inbound_events_case_idx").on(table.caseId),
+  ],
+);
+
 export const quoteAttempts = pgTable(
   "quote_attempts",
   {
@@ -673,6 +724,7 @@ export const schema = {
   cases,
   caseEvents,
   correctionRequests,
+  customerContacts,
   demoFaults,
   evidenceReceipts,
   jobs,
@@ -683,6 +735,7 @@ export const schema = {
   runs,
   toolAttempts,
   whatsappMessages,
+  whatsappInboundEvents,
 };
 
 export type Merchant = typeof merchants.$inferSelect;
@@ -701,6 +754,8 @@ export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type NewWhatsappMessage = typeof whatsappMessages.$inferInsert;
+export type CustomerContact = typeof customerContacts.$inferSelect;
+export type WhatsappInboundEvent = typeof whatsappInboundEvents.$inferSelect;
 export type ClaimedJob = Job & {
   state: "RUNNING";
   leaseOwner: string;
