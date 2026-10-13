@@ -66,7 +66,6 @@ The current product demonstrates this on one **fictional, pre-dispatch Lagos ord
   </tr>
 </table>
 
-**The gallery images above are intentionally labeled placeholders.** They are supplied to preserve the layout until real captures are added. See [Screenshot replacement guide](./docs/assets/readme/README.md).
 
 ## One order. Six specialists. An observable recovery.
 
