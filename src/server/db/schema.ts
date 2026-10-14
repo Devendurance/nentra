@@ -400,6 +400,7 @@ export const whatsappMessages = pgTable(
       .notNull()
       .references(() => correctionRequests.id, { onDelete: "cascade" }),
     idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull().unique(),
+    provider: varchar("provider", { length: 16 }).notNull().default("meta"),
     templateName: varchar("template_name", { length: 120 }).notNull(),
     templateLanguage: varchar("template_language", { length: 16 }).notNull(),
     status: whatsappMessageStatusEnum("status").notNull().default("PENDING"),
@@ -412,6 +413,7 @@ export const whatsappMessages = pgTable(
   (table) => [
     index("whatsapp_messages_case_status_idx").on(table.caseId, table.status),
     index("whatsapp_messages_correction_idx").on(table.correctionRequestId),
+    index("whatsapp_messages_provider_sid_idx").on(table.provider, table.providerMessageId),
     check("whatsapp_messages_attempt_nonnegative_check", sql`${table.attemptCount} >= 0`),
   ],
 );
@@ -443,6 +445,7 @@ export const whatsappInboundEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     providerMessageId: varchar("provider_message_id", { length: 160 }).notNull().unique(),
+    provider: varchar("provider", { length: 16 }).notNull().default("meta"),
     kind: whatsappInboundKindEnum("kind").notNull(),
     statusValue: varchar("status_value", { length: 40 }),
     senderLookupHash: varchar("sender_lookup_hash", { length: 128 }),

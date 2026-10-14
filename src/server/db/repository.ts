@@ -604,6 +604,7 @@ export class DemoRepository implements ShippingStore {
 
   async recordInboundEvent(input: {
     providerMessageId: string;
+    provider?: string;
     kind: "MESSAGE" | "STATUS";
     statusValue?: string;
     senderLookupHash?: string | null;
@@ -615,6 +616,7 @@ export class DemoRepository implements ShippingStore {
     try {
       const [record] = await this.db.insert(whatsappInboundEvents).values({
         providerMessageId: input.providerMessageId,
+        provider: input.provider ?? "meta",
         kind: input.kind,
         statusValue: input.statusValue ?? null,
         senderLookupHash: input.senderLookupHash ?? null,
@@ -651,17 +653,51 @@ export class DemoRepository implements ShippingStore {
     return row ?? null;
   }
 
+  async getWhatsappMessageByProviderSid(provider: string, providerMessageId: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(and(
+        eq(whatsappMessages.provider, provider),
+        eq(whatsappMessages.providerMessageId, providerMessageId),
+      )).limit(1);
+    return row ?? null;
+  }
+
+  async hasInboundFromSenderHash(senderLookupHash: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
+      .where(and(
+        eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
+      )).limit(1);
+    return !!row;
+  }
+
+  async hasRecentInboundFromSenderHash(senderLookupHash: string, since: Date): Promise<boolean> {
+    const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
+      .where(and(
+        eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
+        gte(whatsappInboundEvents.createdAt, since),
+      )).limit(1);
+    return !!row;
+  }
+
   async updateWhatsappMessageFromStatus(
     providerMessageId: string,
-    next: "DELIVERED" | "READ" | "FAILED",
+    next: "SENT" | "DELIVERED" | "READ" | "FAILED",
+    provider = "meta",
   ) {
     const [current] = await this.db.select({ id: whatsappMessages.id }).from(whatsappMessages)
-      .where(eq(whatsappMessages.providerMessageId, providerMessageId)).limit(1);
+      .where(and(
+        eq(whatsappMessages.provider, provider),
+        eq(whatsappMessages.providerMessageId, providerMessageId),
+      )).limit(1);
     if (!current) return { applied: false as const, message: null };
     const allowedFrom =
       next === "READ"
         ? ["SENT", "DELIVERED", "NEEDS_REVIEW"]
-        : ["PENDING", "SENT", "NEEDS_REVIEW"];
+        : next === "SENT"
+          ? ["NEEDS_REVIEW"]
+          : ["PENDING", "SENT", "NEEDS_REVIEW"];
     const [updated] = await this.db.update(whatsappMessages).set({
       status: next,
       updatedAt: new Date(),
@@ -1269,6 +1305,7 @@ export class DemoRepository implements ShippingStore {
     caseId: string;
     correctionRequestId: string;
     idempotencyKey: string;
+    provider?: string;
     templateName: string;
     templateLanguage: string;
     recipientHash: string;
@@ -1280,6 +1317,7 @@ export class DemoRepository implements ShippingStore {
         caseId: input.caseId,
         correctionRequestId: input.correctionRequestId,
         idempotencyKey: input.idempotencyKey,
+        provider: input.provider ?? "meta",
         templateName: input.templateName,
         templateLanguage: input.templateLanguage,
         recipientHash: input.recipientHash,

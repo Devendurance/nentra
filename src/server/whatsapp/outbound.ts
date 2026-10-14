@@ -8,6 +8,14 @@ import {
   type WhatsappConfig,
   type WhatsappTransport,
 } from "@/integrations/whatsapp";
+import {
+  resolveTwilioConfig,
+  resolveWhatsappProvider,
+  sendTwilioCorrectionMessage,
+  type TwilioMessageSender,
+  type TwilioSendConfig,
+  type WhatsappProviderName,
+} from "@/integrations/whatsapp/twilio";
 import { appendEventTx, DemoRepository } from "@/server/db/repository";
 import { whatsappMessages, type WhatsappMessage } from "@/server/db/schema";
 import {
@@ -42,6 +50,7 @@ export interface RequestCorrectionViaWhatsappInput {
   caseId: string;
   env?: NodeJS.ProcessEnv;
   transport?: WhatsappTransport;
+  twilioSender?: TwilioMessageSender;
 }
 
 export interface RetryWhatsappSendInput {
@@ -49,6 +58,7 @@ export interface RetryWhatsappSendInput {
   messageId: string;
   env?: NodeJS.ProcessEnv;
   transport?: WhatsappTransport;
+  twilioSender?: TwilioMessageSender;
 }
 
 export interface ResolveUncertainSendInput {
@@ -128,7 +138,12 @@ interface ResolvedSendContext {
   templateLanguage: string;
   toE164: string;
   provider: WhatsappConfig;
+  providerName: WhatsappProviderName;
+  twilio?: TwilioSendConfig;
+  senderLookupHash: string;
 }
+
+export const TWILIO_CUSTOMER_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 async function resolveSendContext(
   repository: DemoRepository,
@@ -142,6 +157,10 @@ async function resolveSendContext(
   const snapshot = await repository.getCaseSnapshot(caseId);
   if (!pending || !snapshot || snapshot.status !== "WAITING_CUSTOMER" || !snapshot.run) {
     throw new Error("The case has no pending customer correction request.");
+  }
+  const providerName = resolveWhatsappProvider(env);
+  if (providerName === "twilio") {
+    return resolveTwilioSendContext(repository, pending.id, snapshot, env);
   }
   const resolved = resolveWhatsappConfig(env);
   if (!resolved.ok) {
@@ -181,6 +200,81 @@ async function resolveSendContext(
       templateLanguage: resolved.config.templateLanguage,
       toE164,
       provider: resolved.config,
+      providerName: "meta",
+      senderLookupHash: contactLookupHash(toE164, hmacKey),
+    },
+  };
+}
+
+async function resolveTwilioSendContext(
+  repository: DemoRepository,
+  pendingId: string,
+  snapshot: { run: { id: string } | null; order: { id: string; orderNumber: string } },
+  env: NodeJS.ProcessEnv,
+): Promise<
+  | { ok: true; context: ResolvedSendContext }
+  | { ok: false; outcome: WhatsappOutboundOutcome; errorCode: string }
+> {
+  const twilio = resolveTwilioConfig(env);
+  if (!twilio.ok) {
+    return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: twilio.reason };
+  }
+  const hmacKey = env.WHATSAPP_CONTACT_HMAC_KEY ?? "";
+  const encryptionKey = env.WHATSAPP_CONTACT_ENCRYPTION_KEY ?? "";
+  if (!hmacKey || !encryptionKey) {
+    return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: "WHATSAPP_KEYS_MISSING" };
+  }
+  const contact = await getContactForOrder(repository, snapshot.order.id);
+  if (!contact) {
+    return { ok: false, outcome: "CONTACT_UNAVAILABLE", errorCode: "CONTACT_UNAVAILABLE" };
+  }
+  if (contact.consentStatus !== "OPTED_IN") {
+    return { ok: false, outcome: "CONSENT_WITHDRAWN", errorCode: "CUSTOMER_CONSENT_MISSING" };
+  }
+  let toE164: string;
+  try {
+    const decrypted = decryptPhone(contact.phoneIv, contact.phoneCiphertext, encryptionKey);
+    const normalized = normalizePhoneE164(decrypted);
+    if (!normalized || !isValidE164(normalized)) {
+      return { ok: false, outcome: "INVALID_RECIPIENT", errorCode: "INVALID_RECIPIENT" };
+    }
+    toE164 = normalized;
+  } catch {
+    return { ok: false, outcome: "INVALID_RECIPIENT", errorCode: "RECIPIENT_UNREADABLE" };
+  }
+  const senderLookupHash = contactLookupHash(toE164, hmacKey);
+  if (!(await repository.hasInboundFromSenderHash(senderLookupHash))) {
+    return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: "WHATSAPP_SANDBOX_UNVERIFIED" };
+  }
+  const windowStart = new Date(Date.now() - TWILIO_CUSTOMER_WINDOW_MS);
+  if (!(await repository.hasRecentInboundFromSenderHash(senderLookupHash, windowStart))) {
+    return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: "WHATSAPP_WINDOW_CLOSED" };
+  }
+  if (!snapshot.run) {
+    throw new Error("The case has no pending customer correction request.");
+  }
+  return {
+    ok: true,
+    context: {
+      pendingId,
+      runId: snapshot.run.id,
+      orderNumber: snapshot.order.orderNumber,
+      idempotencyKey: buildCorrectionIdempotencyKey(pendingId),
+      templateName: "twilio-sandbox",
+      templateLanguage: "n/a",
+      toE164,
+      provider: {
+        enabled: true,
+        apiVersion: "n/a",
+        phoneNumberId: twilio.config.whatsappFrom,
+        accessToken: "",
+        templateName: "twilio-sandbox",
+        templateLanguage: "n/a",
+        timeoutMs: twilio.config.timeoutMs,
+      },
+      providerName: "twilio",
+      twilio: twilio.config,
+      senderLookupHash,
     },
   };
 }
@@ -264,6 +358,7 @@ export async function requestCorrectionViaWhatsapp(
     caseId,
     correctionRequestId: context.pendingId,
     idempotencyKey: context.idempotencyKey,
+    provider: context.providerName,
     templateName: context.templateName,
     templateLanguage: context.templateLanguage,
     recipientHash: contactLookupHash(context.toE164, env.WHATSAPP_CONTACT_HMAC_KEY ?? ""),
@@ -294,7 +389,7 @@ export async function requestCorrectionViaWhatsapp(
     "WHATSAPP_SEND_CLAIMED",
     "WhatsApp send claimed",
   );
-  return executeClaimedSend(repository, caseId, context, claimed.id, input.transport);
+  return executeClaimedSend(repository, caseId, context, claimed.id, input.transport, input.twilioSender);
 }
 
 export async function retryWhatsappSend(
@@ -330,7 +425,7 @@ export async function retryWhatsappSend(
     "WHATSAPP_RETRY_CLAIMED",
     "WhatsApp retry claimed",
   );
-  return executeClaimedSend(repository, current.caseId, resolved.context, claimed.id, input.transport);
+  return executeClaimedSend(repository, current.caseId, resolved.context, claimed.id, input.transport, input.twilioSender);
 }
 
 async function executeClaimedSend(
@@ -339,12 +434,19 @@ async function executeClaimedSend(
   context: ResolvedSendContext,
   messageId: string,
   transport?: WhatsappTransport,
+  twilioSender?: TwilioMessageSender,
 ): Promise<WhatsappOutboundResult> {
-  const sendResult = await sendCorrectionTemplate(
-    context.provider,
-    { toE164: context.toE164, orderNumber: context.orderNumber },
-    transport,
-  );
+  const sendResult = context.providerName === "twilio" && context.twilio
+    ? await sendTwilioCorrectionMessage(
+      context.twilio,
+      { toE164: context.toE164, orderNumber: context.orderNumber },
+      twilioSender,
+    )
+    : await sendCorrectionTemplate(
+      context.provider,
+      { toE164: context.toE164, orderNumber: context.orderNumber },
+      transport,
+    );
   if (sendResult.outcome === "SENT") {
     const updated = await repository.finalizeWhatsappSend(messageId, {
       status: "SENT",
@@ -355,7 +457,7 @@ async function executeClaimedSend(
       caseId,
       context.runId,
       "SENT",
-      `A WhatsApp template message for order ${context.orderNumber} was accepted by the provider. Acceptance is not delivery. Awaiting the customer reply.`,
+      `A WhatsApp message for order ${context.orderNumber} was accepted by the provider. Acceptance is not delivery. Awaiting the customer reply.`,
       "WHATSAPP_SENT",
     );
     return { outcome: "SENT", message: updated, created: true };

@@ -218,4 +218,33 @@ describe("projectMessaging", () => {
     expect(holdFor(sent, undefined)).toBe(1400);
     expect(holdFor(plain, undefined)).toBe(1000);
   });
+
+  it("treats Twilio skips and failures like Meta ones", () => {
+    seq = 0;
+    const closed = [requestNeeded(), tool("WHATSAPP_WINDOW_CLOSED", "WhatsApp unavailable, scoped form fallback")];
+    const closedView = projectMessaging(closed, 2);
+    expect(closedView.phase).toBe("waiting");
+    expect(closedView.attention).toMatchObject({ kind: "fallback", code: "WHATSAPP_WINDOW_CLOSED" });
+    seq = 0;
+    const unverified = [requestNeeded(), tool("WHATSAPP_SANDBOX_UNVERIFIED", "WhatsApp unavailable, scoped form fallback")];
+    expect(projectMessaging(unverified, 2).attention).toMatchObject({ kind: "fallback" });
+    seq = 0;
+    const failed = [
+      requestNeeded(),
+      tool("WHATSAPP_SEND_CLAIMED", "WhatsApp send claimed"),
+      tool("TWILIO_21608", "WhatsApp request failed"),
+    ];
+    const failedView = projectMessaging(failed, 3);
+    expect(failedView.phase).toBe("failed");
+    expect(failedView.attention).toMatchObject({ kind: "failed", code: "TWILIO_21608" });
+    seq = 0;
+    const retryable = [
+      requestNeeded(),
+      tool("WHATSAPP_SEND_CLAIMED", "WhatsApp send claimed"),
+      tool("TWILIO_20500", "WhatsApp send failed before delivery"),
+    ];
+    const retryView = projectMessaging(retryable, 3);
+    expect(retryView.phase).toBe("needs-review");
+    expect(retryView.attention).toMatchObject({ kind: "retryable", code: "TWILIO_20500" });
+  });
 });

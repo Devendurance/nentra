@@ -159,17 +159,19 @@ export async function processWhatsappWebhook(
   return { acknowledged: true, processed };
 }
 
-async function handleInboundMessage(
+export interface NormalizedInboundMessageInput {
+  inboundId: string;
+  providerMessageId: string;
+  senderE164: string | null;
+  messageType: string;
+  textBody: string | null;
+  replyToProviderMessageId: string | null;
+  hmacKey: string;
+}
+
+export async function handleInboundMessage(
   repository: DemoRepository,
-  message: {
-    inboundId: string;
-    providerMessageId: string;
-    senderE164: string | null;
-    messageType: string;
-    textBody: string | null;
-    replyToProviderMessageId: string | null;
-    hmacKey: string;
-  },
+  message: NormalizedInboundMessageInput,
 ): Promise<string> {
   const finish = async (
     result: string,

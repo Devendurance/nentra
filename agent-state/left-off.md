@@ -1,6 +1,6 @@
 # Left Off
 
-- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison`. P6.1 through P6.4 done, P6.5 next. Do not merge before approval.
+- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison`. P6.1 through P6.4 plus P6.5A done, P6.5B live verification next. Do not merge before approval. Push is blocked by network; commits held locally.
 - Done:
   - P6.2: customer_contacts (HMAC-SHA256 lookup, AES-256-GCM number, OPTED_IN/OPTED_OUT with provenance) plus internal operator provisioning, no public route.
   - P6.2: verified webhook route (GET challenge, POST HMAC-SHA256 over raw bytes, constant-time compare), deduped inbound events, delivered/read/failed status recording with monotonic guard.
@@ -10,7 +10,9 @@
   - P6.3: atomic send claims plus trusted-contact sending, SENT/RETRYABLE/FAILED/NEEDS_REVIEW classification with manual resolution, per-notification status dedupe with monotonic updates, worker liaison wiring gated on WHATSAPP_ENABLED, full suite 144/144 green.
 - Done:
   - P6.4: messaging projection plus Customer contact panel and liaison envelope states, replay-safe, provider-neutral, verified in browser at 375/768/1280/1440 with reduced motion, full suite 154/154 green.
-- Next: P6.5 authorized sandbox verification. Real sending stays disabled until then.
+- Done:
+  - P6.5A: Twilio sandbox provider alongside Meta (provider routing, SDK sends, window gates, signed inbound plus status callbacks, provider-scoped dedupe), full suite 168/168 green. No live sends.
+- Next: P6.5B live Twilio sandbox verification in an isolated deployment. Real sending stays disabled until then.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.

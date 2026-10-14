@@ -156,6 +156,9 @@ function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
     case "WHATSAPP_TEMPLATE_MISSING":
     case "WHATSAPP_KEYS_MISSING":
       return { kind: "fallback", attention: "fallback" };
+    case "WHATSAPP_WINDOW_CLOSED":
+    case "WHATSAPP_SANDBOX_UNVERIFIED":
+      return { kind: "fallback", attention: "fallback" };
     case "CONTACT_UNAVAILABLE":
       return { kind: "fallback", attention: "uncontactable" };
     case "CUSTOMER_CONSENT_MISSING":
@@ -163,7 +166,7 @@ function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
     default:
       break;
   }
-  if (code.startsWith("META_")) {
+  if (code.startsWith("META_") || code.startsWith("TWILIO_")) {
     if (event.payload.title === "WhatsApp send failed before delivery") {
       return { kind: "review", attention: "retryable" };
     }
