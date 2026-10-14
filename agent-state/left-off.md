@@ -1,6 +1,6 @@
 # Left Off
 
-- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison`. P6.1 through P6.5A done, P6.5B readiness done, live test authorization pending. Do not merge before approval.
+- Doing: Phase 6 WhatsApp Customer Liaison on branch `feat/whatsapp-customer-liaison` (local head 0321b0c, push to origin blocked by network). P6.5C staging preflight done except live-gated steps. Do not merge before approval.
 - Done:
   - P6.2: customer_contacts (HMAC-SHA256 lookup, AES-256-GCM number, OPTED_IN/OPTED_OUT with provenance) plus internal operator provisioning, no public route.
   - P6.2: verified webhook route (GET challenge, POST HMAC-SHA256 over raw bytes, constant-time compare), deduped inbound events, delivered/read/failed status recording with monotonic guard.
@@ -13,8 +13,10 @@
 - Done:
   - P6.5A: Twilio sandbox provider alongside Meta (provider routing, SDK sends, window gates, signed inbound plus status callbacks, provider-scoped dedupe), full suite 168/168 green. No live sends.
 - Done:
-  - P6.5B readiness: remote synced at d0d2531, staging plan, stale-skip unblock fix with regression tests, route enforcement proven locally, full suite 170/170 green. Stopped at the live-test authorization gate.
-- Next: owner authorizes one live Twilio sandbox test in the isolated deployment. Real sending stays disabled until then.
+  - P6.5B readiness: stale-skip unblock fix with regression tests, route enforcement proven locally. Fix verified intact (unblock test green in 15/15).
+- Done:
+  - P6.5C: Twilio 24h window/sandbox evidence now requires provider=twilio (repository + outbound), regression test 15/15 twilio + 40/40 whatsapp green, tsc + eslint clean. Committed 0321b0c, push blocked (no github.com egress). Staging DB migration + live send stay behind the authorization gate.
+- Next: owner supplies `.env.staging` (from Vercel nentra-wa-staging env) and runs verify, provision, worker --once. Real sending stays disabled until then.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.
