@@ -109,3 +109,13 @@
 - Landing panels that show operational data read the recorded run through the public GET API (`RecordedCaseProvider`). They must never block the hero, and they show loading, empty and error states instead of fixed values. Illustrative visuals are labelled "Illustrative".
 - Pinned or scrubbed scenes use GSAP ScrollTrigger, loaded on demand, only at 1024px and up with motion allowed. Narrow screens and reduced motion get unpinned, stacked content. Never trap scroll.
 - New landing section styles go in a CSS file next to the component, not in `globals.css`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
