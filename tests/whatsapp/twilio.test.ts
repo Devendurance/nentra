@@ -392,4 +392,27 @@ describe("Twilio WhatsApp sandbox provider", () => {
     }
     expect(dump).not.toContain("14155238886");
   });
+
+  it("unblocks a skipped send once the customer window opens", async () => {
+    const { repository, caseId } = await seedWaitingCase("test-twilio-token-which-is-long-and-url-safe-4014");
+    let calls = 0;
+    const sender: TwilioMessageSender = async () => {
+      calls += 1;
+      return { sid: "SMb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0" };
+    };
+    const skipped = await requestCorrectionViaWhatsapp({ repository, caseId, env: baseEnv(), twilioSender: sender });
+    expect(skipped.outcome).toBe("SKIPPED_DISABLED");
+    expect(skipped.errorCode).toBe("WHATSAPP_SANDBOX_UNVERIFIED");
+    expect(calls).toBe(0);
+
+    await recordInboundHello(repository, "SMc1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1");
+    const sent = await requestCorrectionViaWhatsapp({ repository, caseId, env: baseEnv(), twilioSender: sender });
+    expect(sent.outcome).toBe("SENT");
+    expect(sent.message.providerMessageId).toBe("SMb0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0");
+    expect(calls).toBe(1);
+    const rows = await database!.db.select().from(whatsappMessages).where(eq(whatsappMessages.caseId, caseId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe("SENT");
+    expect((await repository.getCaseSnapshot(caseId))?.status).toBe("WAITING_CUSTOMER");
+  });
 });

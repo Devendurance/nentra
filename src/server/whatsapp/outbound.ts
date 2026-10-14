@@ -279,6 +279,25 @@ async function resolveTwilioSendContext(
   };
 }
 
+function mapExistingWhatsappOutcome(record: WhatsappMessage): WhatsappOutboundResult | null {
+  switch (record.status) {
+    case "SENT":
+    case "DELIVERED":
+    case "READ":
+      return { outcome: "SENT", message: record, errorCode: record.errorCode ?? undefined, created: false };
+    case "SENDING":
+      return { outcome: "IN_PROGRESS", message: record, created: false };
+    case "NEEDS_REVIEW":
+      return { outcome: "NEEDS_REVIEW", message: record, errorCode: record.errorCode ?? undefined, created: false };
+    case "SKIPPED":
+      return { outcome: "SKIPPED_DISABLED", message: record, errorCode: record.errorCode ?? undefined, created: false };
+    case "FAILED":
+      return { outcome: "FAILED_PROVIDER", message: record, errorCode: record.errorCode ?? undefined, created: false };
+    default:
+      return null;
+  }
+}
+
 async function recordTerminalSkip(
   repository: DemoRepository,
   caseId: string,
@@ -336,21 +355,23 @@ export async function requestCorrectionViaWhatsapp(
 
   const preexisting = await repository.getWhatsappMessageByIdempotencyKey(context.idempotencyKey);
   if (preexisting) {
-    switch (preexisting.status) {
-      case "SENT":
-      case "DELIVERED":
-      case "READ":
-        return { outcome: "SENT", message: preexisting, errorCode: preexisting.errorCode ?? undefined, created: false };
-      case "SENDING":
-        return { outcome: "IN_PROGRESS", message: preexisting, created: false };
-      case "NEEDS_REVIEW":
-        return { outcome: "NEEDS_REVIEW", message: preexisting, errorCode: preexisting.errorCode ?? undefined, created: false };
-      case "SKIPPED":
-        return { outcome: "SKIPPED_DISABLED", message: preexisting, errorCode: preexisting.errorCode ?? undefined, created: false };
-      case "FAILED":
-        return { outcome: "FAILED_PROVIDER", message: preexisting, errorCode: preexisting.errorCode ?? undefined, created: false };
-      default:
-        break;
+    if (preexisting.status === "SKIPPED") {
+      // A skipped row never sent anything. When the current evaluation fully
+      // passes, the stale skip is superseded so a healed state (open window,
+      // provisioned contact, granted consent, fixed config) can still send.
+      // The original skip event stays in the journal; a new claim follows it.
+      const reset = await repository.resetSkippedWhatsappMessage(context.idempotencyKey);
+      if (reset) {
+        // Fall through to a fresh send below.
+      } else {
+        const latest = await repository.getWhatsappMessageByIdempotencyKey(context.idempotencyKey);
+        if (!latest) throw new Error("The WhatsApp message disappeared during claiming.");
+        const mapped = mapExistingWhatsappOutcome(latest);
+        if (mapped) return mapped;
+      }
+    } else {
+      const mapped = mapExistingWhatsappOutcome(preexisting);
+      if (mapped) return mapped;
     }
   }
 

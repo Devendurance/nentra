@@ -197,4 +197,25 @@ describe("WhatsApp outbound correction request", () => {
     expect(transportCalls).toBe(0);
     expect((await repository.getCaseSnapshot(caseId))?.status).toBe("WAITING_CUSTOMER");
   });
+
+  it("unblocks a skipped send once the contact is provisioned", async () => {
+    const { repository, caseId, orderId } = await seedWaitingCase();
+    let transportCalls = 0;
+    const transport: WhatsappTransport = async () => {
+      transportCalls += 1;
+      return { status: 200, bodyJson: { messages: [{ id: "wamid.unblocked" }] } };
+    };
+    const missing = await requestCorrectionViaWhatsapp({ repository, caseId, env: baseEnv(), transport });
+    expect(missing.outcome).toBe("CONTACT_UNAVAILABLE");
+    expect(transportCalls).toBe(0);
+
+    await provision(repository, orderId);
+    const sent = await requestCorrectionViaWhatsapp({ repository, caseId, env: baseEnv(), transport });
+    expect(sent.outcome).toBe("SENT");
+    expect(sent.message.providerMessageId).toBe("wamid.unblocked");
+    expect(transportCalls).toBe(1);
+    const rows = await database!.db.select().from(whatsappMessages).where(eq(whatsappMessages.caseId, caseId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe("SENT");
+  });
 });

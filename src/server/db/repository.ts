@@ -1333,6 +1333,16 @@ export class DemoRepository implements ShippingStore {
     }
   }
 
+  async resetSkippedWhatsappMessage(idempotencyKey: string): Promise<boolean> {
+    return this.transaction(async (tx) => {
+      const deleted = await tx.delete(whatsappMessages).where(and(
+        eq(whatsappMessages.idempotencyKey, idempotencyKey),
+        eq(whatsappMessages.status, "SKIPPED"),
+      )).returning({ id: whatsappMessages.id });
+      return deleted.length > 0;
+    });
+  }
+
   async updateWhatsappMessageStatus(
     id: string,
     patch: {
