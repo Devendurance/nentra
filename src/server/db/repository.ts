@@ -662,19 +662,21 @@ export class DemoRepository implements ShippingStore {
     return row ?? null;
   }
 
-  async hasInboundFromSenderHash(senderLookupHash: string): Promise<boolean> {
+  async hasInboundFromSenderHash(senderLookupHash: string, provider = "twilio"): Promise<boolean> {
     const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
       .where(and(
         eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.provider, provider),
         eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
       )).limit(1);
     return !!row;
   }
 
-  async hasRecentInboundFromSenderHash(senderLookupHash: string, since: Date): Promise<boolean> {
+  async hasRecentInboundFromSenderHash(senderLookupHash: string, since: Date, provider = "twilio"): Promise<boolean> {
     const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
       .where(and(
         eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.provider, provider),
         eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
         gte(whatsappInboundEvents.createdAt, since),
       )).limit(1);

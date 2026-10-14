@@ -15,7 +15,7 @@ import {
 } from "@/server/db/schema";
 import { createTestDb } from "@/server/db/test-client";
 import { DemoRepository, type PublicCaseSnapshot } from "@/server/db/repository";
-import { provisionCustomerContact } from "@/server/whatsapp/contacts";
+import { provisionCustomerContact, contactLookupHash, normalizePhoneE164 } from "@/server/whatsapp/contacts";
 import { requestCorrectionViaWhatsapp } from "@/server/whatsapp/outbound";
 import { processTwilioIncoming, processTwilioStatus } from "@/server/whatsapp/twilio-inbound";
 import { runWorkerOnce } from "@/worker/main";
@@ -414,5 +414,28 @@ describe("Twilio WhatsApp sandbox provider", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.status).toBe("SENT");
     expect((await repository.getCaseSnapshot(caseId))?.status).toBe("WAITING_CUSTOMER");
+  });
+
+  it("ignores Meta inbound when proving the Twilio window", async () => {
+    const { repository, caseId } = await seedWaitingCase("test-twilio-token-which-is-long-and-url-safe-4015");
+    const senderE164 = normalizePhoneE164(CUSTOMER_PHONE)!;
+    await repository.recordInboundEvent({
+      providerMessageId: "wamid.meta-window-evidence-1",
+      kind: "MESSAGE",
+      senderLookupHash: contactLookupHash(senderE164, HMAC_KEY),
+    });
+    const sender: TwilioMessageSender = async () => ({ sid: "SMnever" });
+    const unverified = await requestCorrectionViaWhatsapp({ repository, caseId, env: baseEnv(), twilioSender: sender });
+    expect(unverified.outcome).toBe("SKIPPED_DISABLED");
+    expect(unverified.errorCode).toBe("WHATSAPP_SANDBOX_UNVERIFIED");
+
+    await recordInboundHello(repository, "SMe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1");
+    await database!.db.update(whatsappInboundEvents)
+      .set({ createdAt: new Date(Date.now() - 25 * 3600_000), updatedAt: new Date() })
+      .where(eq(whatsappInboundEvents.providerMessageId, "SMe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1"));
+    const senderHash = contactLookupHash(senderE164, HMAC_KEY);
+    const windowStart = new Date(Date.now() - 24 * 3600_000);
+    expect(await repository.hasInboundFromSenderHash(senderHash, "twilio")).toBe(true);
+    expect(await repository.hasRecentInboundFromSenderHash(senderHash, windowStart, "twilio")).toBe(false);
   });
 });

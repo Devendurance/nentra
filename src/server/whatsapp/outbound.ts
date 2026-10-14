@@ -243,11 +243,11 @@ async function resolveTwilioSendContext(
     return { ok: false, outcome: "INVALID_RECIPIENT", errorCode: "RECIPIENT_UNREADABLE" };
   }
   const senderLookupHash = contactLookupHash(toE164, hmacKey);
-  if (!(await repository.hasInboundFromSenderHash(senderLookupHash))) {
+  if (!(await repository.hasInboundFromSenderHash(senderLookupHash, "twilio"))) {
     return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: "WHATSAPP_SANDBOX_UNVERIFIED" };
   }
   const windowStart = new Date(Date.now() - TWILIO_CUSTOMER_WINDOW_MS);
-  if (!(await repository.hasRecentInboundFromSenderHash(senderLookupHash, windowStart))) {
+  if (!(await repository.hasRecentInboundFromSenderHash(senderLookupHash, windowStart, "twilio"))) {
     return { ok: false, outcome: "SKIPPED_DISABLED", errorCode: "WHATSAPP_WINDOW_CLOSED" };
   }
   if (!snapshot.run) {
