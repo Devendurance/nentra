@@ -16,7 +16,8 @@
   - P6.5B readiness: stale-skip unblock fix with regression tests, route enforcement proven locally. Fix verified intact (unblock test green in 15/15).
 - Done:
   - P6.5C: Twilio 24h window/sandbox evidence now requires provider=twilio (repository + outbound), regression test 15/15 twilio + 40/40 whatsapp green, tsc + eslint clean. Committed 0321b0c, push blocked (no github.com egress). Staging DB migration + live send stay behind the authorization gate.
-- Next: owner supplies `.env.staging` (from Vercel nentra-wa-staging env) and runs verify, provision, worker --once. Real sending stays disabled until then.
+- Done:
+  - First authorized Twilio send attempted on staging: preflight passed, Twilio synchronously rejected with TWILIO_21654 (FAILED, attempt 1, no SID, no Twilio-side record). Case still WAITING_CUSTOMER, no retry. Temp send scripts deleted. Cause under reconciliation.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.
