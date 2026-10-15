@@ -17,7 +17,7 @@
 - Done:
   - P6.5C: Twilio 24h window/sandbox evidence now requires provider=twilio (repository + outbound), regression test 15/15 twilio + 40/40 whatsapp green, tsc + eslint clean. Committed 0321b0c, push blocked (no github.com egress). Staging DB migration + live send stay behind the authorization gate.
 - Done:
-  - First authorized Twilio send attempted on staging: preflight passed, Twilio synchronously rejected with TWILIO_21654 (FAILED, attempt 1, no SID, no Twilio-side record). Case still WAITING_CUSTOMER, no retry. Temp send scripts deleted. Cause under reconciliation.
+  - 21654 diagnosis (no send, no retry): SDK 6.2.0 gates every field on !== undefined and a mocked-transport run proves our call serializes to exactly Body/From/To with no ContentSid/ContentVariables, so request construction is exonerated. No template-param path exists in src. Monitor Alerts empty, no Twilio-side message resource. Conclusion: Twilio-side discrepancy on an authenticated 400; our TWILIO_21654 mapping discarded the provider message text, which is the missing evidence. FAILED record preserved; same-key re-call would return old FAILED without sending. Temp scripts deleted.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.
