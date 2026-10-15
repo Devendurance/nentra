@@ -340,17 +340,75 @@ For deeper technical review: [PRD](./docs/PRD.md) · [TRD](./docs/TRD.md) · [Ar
 
 ## Shipped, demonstrated and next
 
-| Status | Capability |
-|---|---|
-| **Shipped / demonstrated** | Real Groq Investigator and Fulfillment decisions and DeepSeek Recovery decision in the verified case |
-| **Shipped / demonstrated** | Durable worker, controlled 503, bounded fallback, merchant approval, idempotent **sandbox** booking and independent `PASS` evidence |
-| **Shipped / demonstrated** | Public cinematic landing page with pinned recorded-case storytelling, event-sourced Floor replay and case evidence |
-| **Shipped / demonstrated** | Real neatlogs ingestion, real Entire checkpoint and real cfo.ai model/export |
-| **Backend only** | Secure single-use correction endpoint and protected operator mutation routes; the public Floor remains read-only |
-| **Next** | WhatsApp Business customer outreach, inbound message handling and an integrated customer correction interface |
-| **Next** | Production merchant onboarding, authenticated workspace, live courier/provider integration and hardened multi-tenant operations |
+## Since the first submission: Telegram-powered order recovery
 
-**The next product milestone is WhatsApp Customer Liaison.** Today Nentra identifies missing information and waits for a scoped correction. It does **not** automatically send a WhatsApp message or parse incoming WhatsApp replies. That integration requires an authorized WhatsApp Business setup, approved messaging flows, customer consent and verified webhooks.
+Nentra's first release demonstrated how six specialist agents could investigate a stuck order, recover from a shipping-provider failure, request merchant approval, create one sandbox booking and independently verify the outcome.
+
+The next milestone connected that workflow to a real customer conversation.
+
+**On October 15, 2026, Nentra completed its first verified Telegram-powered order recovery in staging.**
+
+### A real customer conversation. A verified recovery.
+
+For the fictional Lagos order `NG-2048`, Nentra completed the following sequence:
+
+| Stage | Verified result |
+|---|---|
+| Customer connection | Telegram bot `/start` authenticated and linked through an expiring, single-use order-binding token |
+| Customer consent | Explicit `OPTED_IN` consent persisted with the linked chat identity |
+| Customer outreach | One real Telegram `sendMessage` accepted, with a provider message ID |
+| Customer response | `LANDMARK: Admiralty Way` received through the authenticated Telegram webhook |
+| Correction | Landmark validated and applied to the existing order |
+| Workflow continuation | The same recovery run resumed from `WAITING_CUSTOMER` to `QUOTING` |
+| Shipping recovery | Alternative `REDSTAR_EXPRESS` quote evaluated at ₦7,200, above the ₦6,500 merchant ceiling |
+| Human authorization | Expired quote refreshed and the new exact-price proposal explicitly approved |
+| Booking | Exactly one `DEMO_SANDBOX` booking recorded |
+| Verification | Independent `PASS` receipt with all six checks satisfied |
+| Final outcome | Case `RESOLVED`; run `COMPLETED`; no outstanding or dead-letter jobs |
+
+This was a real Telegram customer interaction against the staging application and database. The order and shipping provider remained fictional, and the final booking was simulated. No real-world parcel dispatch or Telegram delivery/read receipt is claimed.
+
+### What's now implemented
+
+**Telegram Customer Liaison**
+- Real Telegram Bot API integration, authenticated webhooks and private-chat validation.
+- Secure, single-use order binding and explicit customer consent.
+- Encrypted chat identifiers and keyed contact lookups.
+- Durable inbound deduplication, outbound idempotency and bounded failure handling.
+- Customer correction validation that resumes the existing workflow rather than creating a new run.
+- Persisted message lifecycle evidence projected onto the Nentra Floor.
+
+**Merchant-controlled approval**
+- An operator-authenticated Merchant Approval panel inside the Floor.
+- Exact courier, service, price, spending ceiling, difference and expiry displayed before approval.
+- Server-enforced rejection of expired or mismatched quotes.
+- Safe quote refresh that preserves historical approvals and produces a fresh, auditable proposal.
+- Explicit Approve/Reject actions without bypassing the original booking policy.
+
+**Preserved engineering guarantees**
+- Six specialist agent stations with bounded responsibilities.
+- PostgreSQL-backed execution, job leasing and event history.
+- Shipping-provider failure classification and controlled fallback.
+- Human authorization for spending above merchant limits.
+- Idempotent booking intent and sandbox booking.
+- Independent six-check verification and durable evidence receipts.
+- Original neatlogs, Entire and cfo.ai hackathon evidence retained.
+
+### Deployment and evidence boundaries
+
+The initial production `NG-2048` recording and the later Telegram-enabled staging run are separate persisted demonstrations.
+
+Promoting the new code and database schema to production does not copy staging conversations, customer identities, bookings or evidence into production.
+
+The original submitted recording remains available at [usenentra.vercel.app/app](https://usenentra.vercel.app/app). The Telegram-enabled release adds capabilities while preserving that reference demonstration.
+
+WhatsApp inbound integration was verified with a real Twilio message, but outbound testing encountered a Twilio API rejection. WhatsApp remains disabled for the production release; Telegram is the selected primary customer-messaging integration.
+
+### What's next
+
+The next product milestones are production Telegram onboarding, a dedicated merchant workspace, authenticated multi-merchant operations, real shipping-provider integrations and stronger operational monitoring.
+
+**Nentra's operating principle remains the same: investigate the exception, recover within policy, ask a human when required, and prove what actually happened.**
 
 ## Contributors and use
 
