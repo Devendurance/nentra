@@ -299,7 +299,7 @@ export class DemoRepository implements ShippingStore {
       .from(cases)
       .innerJoin(orders, eq(cases.orderId, orders.id))
       .innerJoin(merchants, eq(orders.merchantId, merchants.id))
-      .where(and(eq(orders.orderNumber, DEMO_ORDER_NUMBER), eq(merchants.name, DEMO_MERCHANT_NAME), eq(merchants.mode, "DEMO_SANDBOX")))
+      .where(and(eq(merchants.name, DEMO_MERCHANT_NAME), eq(merchants.mode, "DEMO_SANDBOX")))
       .orderBy(desc(cases.updatedAt), asc(cases.id));
     const snapshots = await Promise.all(rows.map(({ caseId }) => this.getCaseSnapshot(caseId)));
     return snapshots.filter((snapshot): snapshot is PublicCaseSnapshot => snapshot !== null);
@@ -317,7 +317,6 @@ export class DemoRepository implements ShippingStore {
       .innerJoin(merchants, eq(orders.merchantId, merchants.id))
       .where(and(
         eq(cases.id, caseId),
-        eq(orders.orderNumber, DEMO_ORDER_NUMBER),
         eq(merchants.name, DEMO_MERCHANT_NAME),
         eq(merchants.mode, "DEMO_SANDBOX"),
       ))
@@ -466,12 +465,15 @@ export class DemoRepository implements ShippingStore {
       }).returning();
       if (!run) throw new Error("Could not create workflow run");
 
+      const [caseOrder] = await tx.select({ orderNumber: orders.orderNumber })
+        .from(orders).where(eq(orders.id, row.orderId)).limit(1);
+      if (!caseOrder) throw error(404, "ORDER_NOT_FOUND", "The case order was not found.");
       const [task] = await tx.insert(agentTasks).values({
         runId: run.id,
         role: "controller",
         goal: "Create a bounded recovery plan and delegate the initial order review.",
         status: "QUEUED",
-        inputJson: { orderNumber: DEMO_ORDER_NUMBER },
+        inputJson: { orderNumber: caseOrder.orderNumber },
       }).returning();
       if (!task) throw new Error("Could not create controller task");
 
@@ -487,7 +489,7 @@ export class DemoRepository implements ShippingStore {
         to: "TRIAGING",
         actor: "controller",
         type: "CASE_STARTED",
-        payload: { title: "Recovery started", summary: "The controller began a bounded review of order NG-2048.", station: "controller", nextAction: "Review order delivery details" },
+        payload: { title: "Recovery started", summary: `The controller began a bounded review of order ${caseOrder.orderNumber}.`, station: "controller", nextAction: "Review order delivery details" },
       }, run.id);
       await appendEventTx(tx, {
         caseId,
@@ -1664,6 +1666,70 @@ export class DemoRepository implements ShippingStore {
   async getFault(caseId: string, tool: string) {
     const [row] = await this.db.select().from(demoFaults).where(and(eq(demoFaults.caseId, caseId), eq(demoFaults.tool, tool))).limit(1);
     return row ?? null;
+  }
+
+  async createSmokeCase(input: { orderNumber: string; correctionToken: string }): Promise<{
+    caseId: string;
+    orderId: string;
+    merchantId: string;
+    created: boolean;
+  }> {
+    if (!/^NG-2049$/.test(input.orderNumber)) {
+      throw error(400, "SMOKE_ORDER_NOT_ALLOWED", "Only the NG-2049 smoke order can be created append-only.");
+    }
+    if (input.correctionToken.length < 32) {
+      throw error(400, "SMOKE_TOKEN_WEAK", "The smoke correction token must be at least 32 characters.");
+    }
+    return this.transaction(async (tx) => {
+      const [merchant] = await tx.select().from(merchants)
+        .where(and(eq(merchants.name, DEMO_MERCHANT_NAME), eq(merchants.mode, "DEMO_SANDBOX"))).limit(1);
+      if (!merchant) throw error(409, "SMOKE_MERCHANT_MISSING", "The fictional sandbox merchant does not exist.");
+      const [existingOrder] = await tx.select().from(orders)
+        .where(eq(orders.orderNumber, input.orderNumber)).limit(1);
+      if (existingOrder) {
+        const [existingCase] = await tx.select().from(cases)
+          .where(eq(cases.orderId, existingOrder.id)).orderBy(asc(cases.createdAt)).limit(1);
+        if (!existingCase) throw error(409, "SMOKE_CASE_MISSING", "The smoke order exists without a case.");
+        return { caseId: existingCase.id, orderId: existingOrder.id, merchantId: merchant.id, created: false };
+      }
+      const now = new Date();
+      const [order] = await tx.insert(orders).values({
+        merchantId: merchant.id,
+        orderNumber: input.orderNumber,
+        amountNgn: 65_000,
+        paymentStatus: "PAID",
+        addressJson: {
+          recipientName: "A fictional smoke-test recipient",
+          phone: "+2348012345678",
+          addressLine1: "27 Fictional Marina Road",
+          area: "Ikoyi",
+          city: "Lagos",
+          state: "Lagos",
+          countryCode: "NG",
+        },
+        fulfillmentStatus: "BLOCKED",
+      }).returning();
+      if (!order) throw new Error("Could not create the smoke order");
+      const [caseRecord] = await tx.insert(cases).values({
+        orderId: order.id,
+        status: "NEW",
+        blocker: "ADDRESS_INCOMPLETE",
+      }).returning();
+      if (!caseRecord) throw new Error("Could not create the smoke case");
+      await tx.insert(demoFaults).values({
+        caseId: caseRecord.id,
+        tool: "quote_primary",
+        remainingFailures: 1,
+        errorCode: "PROVIDER_503",
+      });
+      await tx.insert(correctionRequests).values({
+        caseId: caseRecord.id,
+        tokenHash: sha256(input.correctionToken),
+        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1_000),
+        status: "PENDING",
+      });
+      return { caseId: caseRecord.id, orderId: order.id, merchantId: merchant.id, created: true };
+    });
   }
 
   async resetAndSeed(input: { correctionToken: string; now?: Date }): Promise<{

@@ -24,6 +24,13 @@ export const correctionTokenSchema = z
   .max(512)
   .regex(/^[A-Za-z0-9_-]+$/, "Expected a URL-safe correction token.");
 
+export const smokeCaseInputSchema = z
+  .object({
+    orderNumber: z.literal("NG-2049"),
+    correctionToken: correctionTokenSchema,
+  })
+  .strict();
+
 const cursorNumberSchema = z
   .number()
   .int()
