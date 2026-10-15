@@ -47,6 +47,8 @@ import {
   quoteAttempts,
   quoteOptions,
   runs,
+  telegramInboundUpdates,
+  telegramOutboundMessages,
   toolAttempts,
   whatsappInboundEvents,
   whatsappMessages,
@@ -1362,6 +1364,115 @@ export class DemoRepository implements ShippingStore {
     }).where(eq(whatsappMessages.id, id)).returning();
     if (!record) throw error(404, "WHATSAPP_MESSAGE_NOT_FOUND", "The WhatsApp message was not found.");
     return record;
+  }
+
+  async recordTelegramUpdate(input: { updateId: string; chatLookupHash?: string | null }) {
+    const [existing] = await this.db.select().from(telegramInboundUpdates)
+      .where(eq(telegramInboundUpdates.updateId, input.updateId)).limit(1);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(telegramInboundUpdates).values({
+        updateId: input.updateId,
+        chatLookupHash: input.chatLookupHash ?? null,
+        resultCode: "RECEIVED",
+      }).returning();
+      if (!record) throw new Error("Could not record Telegram update");
+      return { record, created: true };
+    } catch {
+      const [raced] = await this.db.select().from(telegramInboundUpdates)
+        .where(eq(telegramInboundUpdates.updateId, input.updateId)).limit(1);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record Telegram update");
+    }
+  }
+
+  async updateTelegramUpdateResult(
+    id: string,
+    patch: { resultCode: string; caseId?: string | null; correctionRequestId?: string | null },
+  ) {
+    const [record] = await this.db.update(telegramInboundUpdates).set({
+      resultCode: patch.resultCode,
+      caseId: patch.caseId ?? null,
+      correctionRequestId: patch.correctionRequestId ?? null,
+      updatedAt: new Date(),
+    }).where(eq(telegramInboundUpdates.id, id)).returning();
+    if (!record) throw error(404, "TELEGRAM_UPDATE_NOT_FOUND", "The Telegram update was not found.");
+    return record;
+  }
+
+  async getTelegramMessageByIdempotencyKey(idempotencyKey: string) {
+    const [row] = await this.db.select().from(telegramOutboundMessages)
+      .where(eq(telegramOutboundMessages.idempotencyKey, idempotencyKey)).limit(1);
+    return row ?? null;
+  }
+
+  async insertTelegramMessagePending(input: {
+    caseId: string;
+    correctionRequestId: string;
+    idempotencyKey: string;
+    recipientHash: string;
+  }) {
+    const existing = await this.getTelegramMessageByIdempotencyKey(input.idempotencyKey);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(telegramOutboundMessages).values({
+        caseId: input.caseId,
+        correctionRequestId: input.correctionRequestId,
+        idempotencyKey: input.idempotencyKey,
+        recipientHash: input.recipientHash,
+        status: "PENDING",
+        attemptCount: 0,
+      }).returning();
+      if (!record) throw new Error("Could not record Telegram message");
+      return { record, created: true };
+    } catch {
+      const raced = await this.getTelegramMessageByIdempotencyKey(input.idempotencyKey);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record Telegram message");
+    }
+  }
+
+  async claimTelegramSend(messageId: string) {
+    const [claimed] = await this.db.update(telegramOutboundMessages).set({
+      status: "SENDING",
+      attemptCount: sql`${telegramOutboundMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(telegramOutboundMessages.id, messageId),
+      inArray(telegramOutboundMessages.status, ["PENDING", "RETRYABLE"]),
+    )).returning();
+    return claimed ?? null;
+  }
+
+  async finalizeTelegramSend(
+    messageId: string,
+    result: {
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(telegramOutboundMessages).set({
+      status: result.status,
+      providerMessageId: result.providerMessageId ?? null,
+      errorCode: result.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(telegramOutboundMessages.id, messageId),
+      eq(telegramOutboundMessages.status, "SENDING"),
+    )).returning();
+    if (!record) throw error(409, "TELEGRAM_SEND_NOT_CLAIMED", "The Telegram send is no longer owned by this worker.");
+    return record;
+  }
+
+  async resetSkippedTelegramMessage(idempotencyKey: string): Promise<boolean> {
+    return this.transaction(async (tx) => {
+      const deleted = await tx.delete(telegramOutboundMessages).where(and(
+        eq(telegramOutboundMessages.idempotencyKey, idempotencyKey),
+        eq(telegramOutboundMessages.status, "SKIPPED"),
+      )).returning({ id: telegramOutboundMessages.id });
+      return deleted.length > 0;
+    });
   }
 
   async updateBookingOutcome(input: {

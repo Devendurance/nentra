@@ -17,7 +17,9 @@
 - Done:
   - P6.5C: Twilio 24h window/sandbox evidence now requires provider=twilio (repository + outbound), regression test 15/15 twilio + 40/40 whatsapp green, tsc + eslint clean. Committed 0321b0c, push blocked (no github.com egress). Staging DB migration + live send stay behind the authorization gate.
 - Done:
-  - 21654 diagnosis (no send, no retry): SDK 6.2.0 gates every field on !== undefined and a mocked-transport run proves our call serializes to exactly Body/From/To with no ContentSid/ContentVariables, so request construction is exonerated. No template-param path exists in src. Monitor Alerts empty, no Twilio-side message resource. Conclusion: Twilio-side discrepancy on an authenticated 400; our TWILIO_21654 mapping discarded the provider message text, which is the missing evidence. FAILED record preserved; same-key re-call would return old FAILED without sending. Temp scripts deleted.
+  - 21654 diagnosis (no send, no retry): request construction exonerated via mocked-transport proof; Twilio-side discrepancy; FAILED record preserved. Temp scripts deleted.
+- Done:
+  - P7 Telegram slice: Bot API sendMessage, signed POST /api/telegram/webhook, single-use hashed binding tokens with atomic /start linking and explicit Telegram-only consent, telegram_contacts/inbound_updates/outbound_messages (migration 0007 applied to staging, NG-2048 intact), provider-scoped telegram idempotency, shared landmark-correction core reused by both channels, coordinator liaison hook behind TELEGRAM_ENABLED, floor TELEGRAM_* states without delivery receipts. 10/10 telegram + 40/40 whatsapp + 13/13 floor tests green, tsc + lint clean.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
   - No real WhatsApp delivery tested. Production sending stays disabled.

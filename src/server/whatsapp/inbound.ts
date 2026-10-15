@@ -1,6 +1,6 @@
 import { HttpError } from "@/server/api/errors";
-import { correctionInputSchema } from "@/server/api/schemas";
 import { appendEventTx, DemoRepository } from "@/server/db/repository";
+import { applyLandmarkText } from "@/server/messaging/landmark-correction";
 import {
   contactLookupHash,
   findContactsBySender,
@@ -13,7 +13,6 @@ import {
 } from "@/integrations/whatsapp/webhook";
 
 const MAX_REPLY_CHARS = 2_000;
-const LANDMARK_REPLY_PATTERN = /^\s*landmark\s*:\s*([\s\S]+?)\s*$/i;
 
 export interface ProcessWebhookInput {
   repository: DemoRepository;
@@ -263,59 +262,11 @@ async function applyReply(
     return result;
   };
 
-  const parsed = LANDMARK_REPLY_PATTERN.exec(message.textBody ?? "");
-  if (!parsed) {
-    return finish("INVALID_FORMAT");
-  }
-  let landmark: string;
-  try {
-    landmark = correctionInputSchema.parse({ landmark: parsed[1] }).landmark as string;
-  } catch {
-    return finish("INVALID_LANDMARK");
-  }
-
-  let applied: Awaited<ReturnType<DemoRepository["applyWhatsappCorrectionByRequestId"]>>;
-  try {
-    applied = await repository.applyWhatsappCorrectionByRequestId(candidate.requestId, { landmark });
-  } catch (error) {
-    if (error instanceof HttpError && error.code === "CASE_NOT_WAITING_FOR_CUSTOMER") {
-      return finish("CASE_NOT_WAITING");
-    }
-    if (error instanceof HttpError && error.code === "CORRECTION_INCOMPLETE") {
-      const snapshot = await repository.getCaseSnapshot(candidate.caseId);
-      if (snapshot?.run) {
-        await appendLiaisonEvent(
-          repository,
-          candidate.caseId,
-          snapshot.run.id,
-          "WhatsApp reply needs more detail",
-          "The customer landmark was valid but further address details are still missing.",
-          "INCOMPLETE_CORRECTION",
-        );
-      }
-      return finish("INCOMPLETE_CORRECTION");
-    }
-    throw error;
-  }
-
-  if (applied.outcome === "ALREADY_RESOLVED") {
-    return finish("ALREADY_APPLIED");
-  }
-  if (applied.outcome === "EXPIRED") {
-    return finish("CORRECTION_EXPIRED");
-  }
-  const snapshot = await repository.getCaseSnapshot(candidate.caseId);
-  if (snapshot?.run) {
-    await appendLiaisonEvent(
-      repository,
-      candidate.caseId,
-      snapshot.run.id,
-      "WhatsApp reply validated",
-      "The customer landmark arrived over WhatsApp and quote evaluation resumed.",
-      "WHATSAPP_VALIDATED",
-    );
-  }
-  return finish("CORRECTION_APPLIED");
+  const result = await applyLandmarkText(repository, candidate, message.textBody, {
+    label: "WhatsApp",
+    validatedCode: "WHATSAPP_VALIDATED",
+  });
+  return finish(result);
 }
 
 export { normalizePhoneE164 };

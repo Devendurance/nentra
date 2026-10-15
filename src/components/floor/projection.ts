@@ -124,17 +124,21 @@ function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
   switch (code) {
     case "WHATSAPP_SEND_CLAIMED":
     case "WHATSAPP_RETRY_CLAIMED":
+    case "TELEGRAM_SEND_CLAIMED":
       return { kind: "lifecycle", stage: "claimed" };
     case "WHATSAPP_SENT":
     case "WHATSAPP_MANUALLY_CONFIRMED":
+    case "TELEGRAM_SENT":
       return { kind: "lifecycle", stage: "accepted" };
     case "WHATSAPP_DELIVERED":
       return { kind: "lifecycle", stage: "delivered" };
     case "WHATSAPP_READ":
       return { kind: "lifecycle", stage: "read" };
     case "WHATSAPP_FAILED":
+    case "TELEGRAM_FAILED":
       return { kind: "failed", attention: "failed" };
     case "WHATSAPP_VALIDATED":
+    case "TELEGRAM_VALIDATED":
       return { kind: "lifecycle", stage: "validated" };
     case "WHATSAPP_CONFIRMED_UNSENT":
       return { kind: "resolved" };
@@ -151,6 +155,11 @@ function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
     case "INCOMPLETE_CORRECTION":
       return { kind: "note", attention: "incomplete" };
     case "WHATSAPP_DISABLED":
+    case "TELEGRAM_DISABLED":
+    case "TELEGRAM_BOT_TOKEN_MISSING":
+    case "TELEGRAM_BOT_USERNAME_MISSING":
+    case "TELEGRAM_KEYS_MISSING":
+    case "TELEGRAM_NOT_LINKED":
     case "WHATSAPP_PHONE_NUMBER_ID_MISSING":
     case "WHATSAPP_ACCESS_TOKEN_MISSING":
     case "WHATSAPP_TEMPLATE_MISSING":
@@ -171,6 +180,15 @@ function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
       return { kind: "review", attention: "retryable" };
     }
     if (event.payload.title === "WhatsApp request failed") {
+      return { kind: "failed", attention: "failed" };
+    }
+    return { kind: "review", attention: "needs-review" };
+  }
+  if (code.startsWith("TELEGRAM_")) {
+    if (event.payload.title === "Telegram send failed before delivery") {
+      return { kind: "review", attention: "retryable" };
+    }
+    if (event.payload.title === "Telegram request failed") {
       return { kind: "failed", attention: "failed" };
     }
     return { kind: "review", attention: "needs-review" };

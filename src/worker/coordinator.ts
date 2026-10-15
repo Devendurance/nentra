@@ -18,6 +18,7 @@ import {
   type CommitJobStepInput,
 } from "@/server/db/repository";
 import type { ClaimedJob } from "@/server/db/schema";
+import { requestCorrectionViaTelegram } from "@/server/telegram/outbound";
 import { requestCorrectionViaWhatsapp } from "@/server/whatsapp/outbound";
 
 export type CoordinatorOptions = {
@@ -240,6 +241,13 @@ async function liaison(options: CoordinatorOptions, context: CaseContext): Promi
     runStatus: "WAITING",
   });
   try {
+    if ((process.env.TELEGRAM_ENABLED ?? "").trim().toLowerCase() === "true") {
+      await requestCorrectionViaTelegram({
+        repository: options.repository,
+        caseId: context.caseRecord.id,
+        env: process.env,
+      });
+    }
     if ((process.env.WHATSAPP_ENABLED ?? "").trim().toLowerCase() === "true") {
       await requestCorrectionViaWhatsapp({
         repository: options.repository,

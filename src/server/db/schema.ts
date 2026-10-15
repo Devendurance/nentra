@@ -460,6 +460,72 @@ export const whatsappInboundEvents = pgTable(
   ],
 );
 
+export const telegramContacts = pgTable(
+  "telegram_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" })
+      .unique(),
+    chatLookupHash: varchar("chat_lookup_hash", { length: 128 }),
+    chatIv: varchar("chat_iv", { length: 64 }),
+    chatCiphertext: text("chat_ciphertext"),
+    bindingTokenHash: varchar("binding_token_hash", { length: 128 }).unique(),
+    bindingExpiresAt: timestamp("binding_expires_at", { withTimezone: true, mode: "date" }),
+    consentStatus: contactConsentStatusEnum("consent_status").notNull().default("OPTED_OUT"),
+    consentProvenance: varchar("consent_provenance", { length: 120 }).notNull(),
+    provisionedBy: varchar("provisioned_by", { length: 120 }).notNull(),
+    consentedAt: timestamp("consented_at", { withTimezone: true, mode: "date" }),
+    ...timestamps(),
+  },
+  (table) => [
+    index("telegram_contacts_chat_lookup_hash_idx").on(table.chatLookupHash),
+  ],
+);
+
+export const telegramInboundUpdates = pgTable(
+  "telegram_inbound_updates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    updateId: varchar("update_id", { length: 32 }).notNull().unique(),
+    chatLookupHash: varchar("chat_lookup_hash", { length: 128 }),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
+    correctionRequestId: uuid("correction_request_id")
+      .references(() => correctionRequests.id, { onDelete: "cascade" }),
+    resultCode: varchar("result_code", { length: 120 }).notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    index("telegram_inbound_updates_case_idx").on(table.caseId),
+  ],
+);
+
+export const telegramOutboundMessages = pgTable(
+  "telegram_outbound_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    correctionRequestId: uuid("correction_request_id")
+      .notNull()
+      .references(() => correctionRequests.id, { onDelete: "cascade" }),
+    idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull().unique(),
+    status: varchar("status", { length: 24 }).notNull().default("PENDING"),
+    providerMessageId: varchar("provider_message_id", { length: 160 }),
+    recipientHash: varchar("recipient_hash", { length: 128 }).notNull(),
+    errorCode: varchar("error_code", { length: 160 }),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    ...timestamps(),
+  },
+  (table) => [
+    index("telegram_outbound_messages_case_status_idx").on(table.caseId, table.status),
+    index("telegram_outbound_messages_correction_idx").on(table.correctionRequestId),
+    check("telegram_outbound_messages_attempt_nonnegative_check", sql`${table.attemptCount} >= 0`),
+  ],
+);
+
 export const quoteAttempts = pgTable(
   "quote_attempts",
   {
@@ -762,6 +828,9 @@ export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type NewWhatsappMessage = typeof whatsappMessages.$inferInsert;
 export type CustomerContact = typeof customerContacts.$inferSelect;
 export type WhatsappInboundEvent = typeof whatsappInboundEvents.$inferSelect;
+export type TelegramContact = typeof telegramContacts.$inferSelect;
+export type TelegramInboundUpdate = typeof telegramInboundUpdates.$inferSelect;
+export type TelegramOutboundMessage = typeof telegramOutboundMessages.$inferSelect;
 export type ClaimedJob = Job & {
   state: "RUNNING";
   leaseOwner: string;

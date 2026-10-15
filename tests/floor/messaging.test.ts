@@ -74,6 +74,37 @@ describe("projectMessaging", () => {
     ]);
   });
 
+  it("walks the Telegram lifecycle to acceptance and validation without delivery states", () => {
+    seq = 0;
+    const events = [
+      requestNeeded(),
+      tool("TELEGRAM_SEND_CLAIMED", "Telegram send claimed"),
+      tool("TELEGRAM_SENT", "Customer contacted on Telegram"),
+      tool("TELEGRAM_VALIDATED", "Telegram reply validated"),
+      customerReplied(),
+    ];
+    const phases = ["waiting", "sending", "accepted", "validated", "resumed"];
+    phases.forEach((phase, i) => {
+      expect(projectMessaging(events, i + 1).phase).toBe(phase);
+    });
+    const full = projectMessaging(events, events.length);
+    expect(full.milestones).toEqual([
+      { key: "requested", seq: 1 },
+      { key: "claimed", seq: 2 },
+      { key: "accepted", seq: 3 },
+      { key: "validated", seq: 4 },
+      { key: "resumed", seq: 5 },
+    ]);
+  });
+
+  it("flags Telegram failures and fallbacks without inventing receipts", () => {
+    seq = 0;
+    const failed = projectMessaging([requestNeeded(), tool("TELEGRAM_FAILED", "Telegram request failed")], 2);
+    expect(failed).toMatchObject({ phase: "failed", attention: { kind: "failed", code: "TELEGRAM_FAILED" } });
+    const fallback = projectMessaging([requestNeeded(), tool("TELEGRAM_NOT_LINKED", "t")], 2);
+    expect(fallback).toMatchObject({ phase: "waiting", attention: { kind: "fallback", code: "TELEGRAM_NOT_LINKED" } });
+  });
+
   it("holds at acceptance, delivery, or read when nothing further is recorded", () => {
     seq = 0;
     const accepted = [requestNeeded(), tool("WHATSAPP_SEND_CLAIMED", "c"), tool("WHATSAPP_SENT", "s")];
