@@ -92,6 +92,8 @@ export type PublicCaseSnapshot = {
     merchantCeilingNgn: number;
     provider: string | null;
     service: string | null;
+    quoteOptionId: string | null;
+    expiresAt: string | null;
   } | null;
   evidence: PublicEvidence | null;
 };
@@ -397,6 +399,8 @@ export class DemoRepository implements ShippingStore {
         merchantCeilingNgn: joined.merchantRecord.maxShippingNgn,
         provider: approval.quote?.provider ?? null,
         service: approval.quote?.service ?? null,
+        quoteOptionId: approval.quote?.id ?? null,
+        expiresAt: approval.quote?.expiresAt ? iso(approval.quote.expiresAt) : null,
       } : null,
       evidence: receipt ? {
         id: receipt.receipt.id,
@@ -772,7 +776,7 @@ export class DemoRepository implements ShippingStore {
     approvalId: string,
     input: { decision: "approve" | "reject"; reason?: string; expectedVersion?: number },
   ): Promise<PublicCaseSnapshot> {
-    await this.transaction(async (tx) => {
+    const quoteExpired = await this.transaction(async (tx) => {
       const row = await lockCase(tx, caseId);
       checkExpectedVersion(row, input.expectedVersion);
       if (row.status !== "WAITING_APPROVAL" || !row.activeRunId) {
@@ -785,6 +789,36 @@ export class DemoRepository implements ShippingStore {
       if (approval.status !== "PENDING") throw error(409, "APPROVAL_ALREADY_REVIEWED", "This approval was already reviewed.");
       const now = new Date();
       const approved = input.decision === "approve";
+      if (approved) {
+        const [boundQuote] = approval.quoteOptionId
+          ? await tx.select().from(quoteOptions).where(eq(quoteOptions.id, approval.quoteOptionId)).limit(1)
+          : [];
+        const quoteStale = !boundQuote
+          || !boundQuote.eligible
+          || boundQuote.amountNgn !== approval.requestedCostNgn
+          || (boundQuote.expiresAt !== null && boundQuote.expiresAt.getTime() <= now.getTime());
+        if (quoteStale) {
+          await tx.update(approvals).set({
+            status: "EXPIRED",
+            reviewedBy: "quote-expiry-guard",
+            reviewedAt: now,
+            updatedAt: now,
+          }).where(eq(approvals.id, approvalId));
+          await appendEventTx(tx, {
+            caseId,
+            runId: row.activeRunId,
+            type: "TOOL_CALLED",
+            actor: "controller",
+            payload: {
+              title: "Expired quote cannot be approved",
+              summary: "The bound shipping quote expired or no longer matches the approval, so the approval was marked expired. Refresh the quote for a new exact-quote approval.",
+              station: "controller",
+              resultCode: "QUOTE_EXPIRED",
+            },
+          });
+          return true;
+        }
+      }
       await tx.update(approvals).set({
         status: approved ? "APPROVED" : "REJECTED",
         reviewedBy: "demo-operator",
@@ -816,6 +850,112 @@ export class DemoRepository implements ShippingStore {
         }, row.activeRunId);
         await tx.update(runs).set({ status: "FAILED", finishedAt: now, updatedAt: now }).where(eq(runs.id, row.activeRunId));
       }
+      return false;
+    });
+    if (quoteExpired) {
+      throw error(409, "QUOTE_EXPIRED", "The bound shipping quote has expired. Refresh the quote before approving.");
+    }
+
+    const snapshot = await this.getCaseSnapshot(caseId);
+    if (!snapshot) throw error(404, "CASE_NOT_FOUND", "Case was not found.");
+    return snapshot;
+  }
+
+  async refreshApprovalQuote(
+    caseId: string,
+    input: {
+      expectedVersion?: number;
+      requestQuote: (route: "PREFERRED" | "ALTERNATIVE") => Promise<{
+        id: string;
+        providerCode: string;
+        serviceCode: string;
+        amountNgn: number;
+        expiresAt: string;
+      }>;
+    },
+  ): Promise<PublicCaseSnapshot> {
+    const precheck = await this.getCaseSnapshot(caseId);
+    if (!precheck || precheck.status !== "WAITING_APPROVAL" || !precheck.run || !precheck.pendingApproval) {
+      throw error(409, "CASE_NOT_WAITING_FOR_APPROVAL", "The case is not waiting for merchant approval.");
+    }
+    const oldApprovalId = precheck.pendingApproval.id;
+    const [oldQuote] = precheck.pendingApproval.quoteOptionId
+      ? await this.db.select().from(quoteOptions).where(eq(quoteOptions.id, precheck.pendingApproval.quoteOptionId)).limit(1)
+      : [];
+    if (!oldQuote || oldQuote.expiresAt === null || oldQuote.expiresAt.getTime() > Date.now()) {
+      throw error(409, "QUOTE_STILL_VALID", "The pending quote has not expired; refresh is not needed.");
+    }
+    const route = oldQuote.provider === "GIG_LOGISTICS" ? "PREFERRED" : "ALTERNATIVE";
+    const fresh = await input.requestQuote(route);
+    if (!fresh.id || fresh.expiresAt === undefined || Date.parse(fresh.expiresAt) <= Date.now()) {
+      throw error(502, "QUOTE_REFRESH_FAILED", "The replacement shipping quote was not usable.");
+    }
+
+    await this.transaction(async (tx) => {
+      const row = await lockCase(tx, caseId);
+      checkExpectedVersion(row, input.expectedVersion);
+      if (row.status !== "WAITING_APPROVAL" || !row.activeRunId) {
+        throw error(409, "CASE_NOT_WAITING_FOR_APPROVAL", "The case is not waiting for merchant approval.");
+      }
+      const [pending] = await tx.select().from(approvals)
+        .where(and(eq(approvals.caseId, caseId), eq(approvals.status, "PENDING")))
+        .for("update").limit(1);
+      if (!pending || pending.id !== oldApprovalId) {
+        throw error(409, "APPROVAL_SUPERSEDED", "The approval was already refreshed or reviewed by another request.");
+      }
+      const now = new Date();
+      await tx.update(approvals).set({
+        status: "EXPIRED",
+        reviewedBy: "quote-refresh",
+        reviewedAt: now,
+        updatedAt: now,
+      }).where(eq(approvals.id, pending.id));
+      const [attemptRow] = await tx.select({ attempt: max(quoteAttempts.attempt) }).from(quoteAttempts)
+        .where(and(eq(quoteAttempts.caseId, caseId), eq(quoteAttempts.route, route)));
+      await tx.insert(quoteAttempts).values({
+        caseId,
+        runId: row.activeRunId,
+        taskId: null,
+        route,
+        provider: fresh.providerCode,
+        attempt: (attemptRow?.attempt ?? 0) + 1,
+        status: "SUCCEEDED",
+        resultCode: "QUOTE_REFRESHED",
+        finishedAt: now,
+      });
+      await tx.insert(approvals).values({
+        caseId,
+        quoteOptionId: fresh.id,
+        proposalHash: approvalProposalHash(caseId, fresh.id, fresh.providerCode, fresh.serviceCode, fresh.amountNgn),
+        requestedCostNgn: fresh.amountNgn,
+        status: "PENDING",
+      });
+      await appendEventTx(tx, {
+        caseId,
+        runId: row.activeRunId,
+        type: "TOOL_CALLED",
+        actor: "controller",
+        payload: {
+          title: "Expired approval superseded",
+          summary: `The expired ${oldQuote.amountNgn.toLocaleString("en-NG")} NGN quote approval was marked expired and replaced with a fresh exact quote.`,
+          station: "controller",
+          resultCode: "APPROVAL_SUPERSEDED",
+        },
+      });
+      const aboveCeiling = fresh.amountNgn > (precheck?.merchant.maxShippingNgn ?? 0);
+      await appendEventTx(tx, {
+        caseId,
+        runId: row.activeRunId,
+        type: "APPROVAL_REQUIRED",
+        actor: "controller",
+        payload: {
+          title: "Merchant approval required",
+          summary: `The refreshed quote is ${fresh.amountNgn.toLocaleString("en-NG")} NGN from ${fresh.providerCode}.`,
+          station: "controller",
+          resultCode: aboveCeiling ? "COST_LIMIT" : "QUOTE_REFRESHED",
+          nextAction: "Approve or decline this exact quote",
+        },
+      });
     });
 
     const snapshot = await this.getCaseSnapshot(caseId);
@@ -1859,6 +1999,10 @@ function checkExpectedVersion(row: CaseRecord, expectedVersion?: number): void {
   if (expectedVersion !== undefined && row.version !== expectedVersion) {
     throw error(409, "CASE_VERSION_CONFLICT", "The case changed before this action was accepted.");
   }
+}
+
+function approvalProposalHash(caseId: string, quoteId: string, provider: string, service: string, amountNgn: number): string {
+  return createHash("sha256").update(`${caseId}|${quoteId}|${provider}|${service}|${amountNgn}|NGN`).digest("hex");
 }
 
 function toPublicEvent(row: CaseEventRecord): PublicCaseEvent {

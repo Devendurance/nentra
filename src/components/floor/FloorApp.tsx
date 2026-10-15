@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 
 import { DecisionRail } from "./DecisionRail";
 import { FloorStage } from "./FloorStage";
+import { MerchantApprovalPanel } from "./MerchantApprovalPanel";
 import { holdFor, projectFloor } from "./projection";
 import { ReplayControls } from "./ReplayControls";
 import { Timeline } from "./Timeline";
@@ -335,6 +336,7 @@ function Floor({ feed, snapshot, others }: { feed: CaseFeed; snapshot: PublicCas
           }}
         />
         <div className="floor-side">
+          <MerchantApprovalPanel snapshot={snapshot} onChanged={feed.retry} />
           <Verification evidence={evidence} snapshot={snapshot} />
           <section className="panel" aria-labelledby="run-title">
             <div className="panel-head">
@@ -371,7 +373,7 @@ function Floor({ feed, snapshot, others }: { feed: CaseFeed; snapshot: PublicCas
               ) : null}
             </dl>
             <p className="receipt-note">
-              This page only reads the case. It never starts, resets, approves or edits a workflow.
+              This page only reads the case, except for explicit merchant approval actions taken with the operator secret.
             </p>
           </section>
         </div>

@@ -1,0 +1,67 @@
+.approval-panel .receipt-grid {
+  margin-top: 12px;
+}
+
+.approval-secret {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.approval-secret-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream-55);
+}
+
+.approval-secret-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(13, 11, 7, 0.55);
+  color: var(--cream);
+  font-size: 14px;
+  line-height: 20px;
+  font-family: var(--font-ui);
+}
+
+.approval-secret-input::placeholder {
+  color: var(--cream-35);
+}
+
+.approval-secret-input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.approval-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.approval-actions .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.approval-feedback {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--cream-80);
+}
+
+.approval-feedback.is-ok {
+  color: var(--mint, #9fe8b8);
+}
+
+.approval-feedback.is-error {
+  color: var(--rose, #f2a3a3);
+}

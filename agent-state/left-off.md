@@ -19,6 +19,9 @@
 - Done:
   - 21654 diagnosis (no send, no retry): request construction exonerated via mocked-transport proof; Twilio-side discrepancy; FAILED record preserved. Temp scripts deleted.
 - Done:
+  - P7.1 approval slice: Merchant Approval panel on the Floor plus authenticated refresh endpoint issuing a genuinely new persisted sandbox quote and exact-quote approval on the same run, decideApproval rejects expired or mismatched quotes transactionally. 6/6 approval + 25/25 integration/floor + 16/16 telegram/approval green, tsc + lint clean, production build verified.
+- Next: user refreshes the expired REDSTAR quote and approves the fresh exact quote from the Floor panel on staging.
+- Done:
   - P7 Telegram slice: Bot API sendMessage, signed POST /api/telegram/webhook, single-use hashed binding tokens with atomic /start linking and explicit Telegram-only consent, telegram_contacts/inbound_updates/outbound_messages (migration 0007 applied to staging, NG-2048 intact), provider-scoped telegram idempotency, shared landmark-correction core reused by both channels, coordinator liaison hook behind TELEGRAM_ENABLED, floor TELEGRAM_* states without delivery receipts. 10/10 telegram + 40/40 whatsapp + 13/13 floor tests green, tsc + lint clean.
 - Known issues:
   - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.

@@ -74,6 +74,10 @@ export const approvalInputSchema = z
   })
   .strict();
 
+export const refreshApprovalInputSchema = z
+  .object({ expectedVersion: expectedVersionSchema.optional() })
+  .strict();
+
 export const startInputSchema = z
   .object({ expectedVersion: expectedVersionSchema.optional() })
   .strict();
