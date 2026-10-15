@@ -15,6 +15,48 @@
       "when": 1791788869018,
       "tag": "0001_sticky_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791909860283,
+      "tag": "0002_tidy_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791912934960,
+      "tag": "0003_curved_professor_monster",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791913070178,
+      "tag": "0004_salty_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791918659247,
+      "tag": "0005_fearless_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792004997800,
+      "tag": "0006_charming_hawkeye",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792078161220,
+      "tag": "0007_amusing_corsair",
+      "breakpoints": true
     }
   ]
 }

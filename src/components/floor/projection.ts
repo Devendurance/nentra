@@ -33,12 +33,230 @@ export type FloorProjection = {
   verification: CaseEvent | null;
   outcome: CaseEvent | null;
   task: TaskView | null;
+  messaging: MessagingState;
 };
 
 /** The station where an event's work happens: its recorded station, else its actor. */
 export function stationOf(event: CaseEvent): StationId | null {
   if (isStation(event.payload.station)) return event.payload.station;
   return isStation(event.actor) ? event.actor : null;
+}
+
+/**
+ * Customer liaison messaging state, derived only from persisted events.
+ * Lifecycle stages advance on send-state events; failures, retries and fallbacks
+ * are recorded as attention without inventing delivery or validation.
+ */
+export type MessagingPhase =
+  | "idle"
+  | "waiting"
+  | "sending"
+  | "accepted"
+  | "delivered"
+  | "read"
+  | "validated"
+  | "resumed"
+  | "failed"
+  | "needs-review";
+
+export type MessagingAttentionKind =
+  | "failed"
+  | "retryable"
+  | "needs-review"
+  | "fallback"
+  | "uncontactable"
+  | "no-consent"
+  | "invalid"
+  | "exhausted"
+  | "ambiguous"
+  | "incomplete";
+
+export type MessagingAttention = {
+  kind: MessagingAttentionKind;
+  seq: number;
+  code: string;
+};
+
+export type MessagingMilestoneKey =
+  | "requested"
+  | "claimed"
+  | "accepted"
+  | "delivered"
+  | "read"
+  | "validated"
+  | "resumed";
+
+export type MessagingMilestone = { key: MessagingMilestoneKey; seq: number };
+
+export type MessagingState = {
+  /** True once a customer correction has been requested; the panel stays hidden before that. */
+  active: boolean;
+  phase: MessagingPhase;
+  attention: MessagingAttention | null;
+  milestones: MessagingMilestone[];
+};
+
+export function emptyMessaging(): MessagingState {
+  return { active: false, phase: "idle", attention: null, milestones: [] };
+}
+
+type RankedStage = Exclude<MessagingMilestoneKey, "requested">;
+
+const LIFECYCLE_RANK: Record<RankedStage, number> = {
+  claimed: 1,
+  accepted: 2,
+  delivered: 3,
+  read: 4,
+  validated: 5,
+  resumed: 6,
+};
+
+type SendSignal =
+  | { kind: "lifecycle"; stage: Exclude<RankedStage, "resumed"> }
+  | { kind: "failed"; attention: MessagingAttentionKind }
+  | { kind: "review"; attention: MessagingAttentionKind }
+  | { kind: "resolved" }
+  | { kind: "fallback"; attention: MessagingAttentionKind }
+  | { kind: "note"; attention: MessagingAttentionKind };
+
+function classifyLiaisonTool(event: CaseEvent): SendSignal | null {
+  const code = event.payload.resultCode ?? "";
+  switch (code) {
+    case "WHATSAPP_SEND_CLAIMED":
+    case "WHATSAPP_RETRY_CLAIMED":
+    case "TELEGRAM_SEND_CLAIMED":
+      return { kind: "lifecycle", stage: "claimed" };
+    case "WHATSAPP_SENT":
+    case "WHATSAPP_MANUALLY_CONFIRMED":
+    case "TELEGRAM_SENT":
+      return { kind: "lifecycle", stage: "accepted" };
+    case "WHATSAPP_DELIVERED":
+      return { kind: "lifecycle", stage: "delivered" };
+    case "WHATSAPP_READ":
+      return { kind: "lifecycle", stage: "read" };
+    case "WHATSAPP_FAILED":
+    case "TELEGRAM_FAILED":
+      return { kind: "failed", attention: "failed" };
+    case "WHATSAPP_VALIDATED":
+    case "TELEGRAM_VALIDATED":
+      return { kind: "lifecycle", stage: "validated" };
+    case "WHATSAPP_CONFIRMED_UNSENT":
+      return { kind: "resolved" };
+    case "TRANSPORT_ERROR":
+    case "SEND_RESPONSE_UNREADABLE":
+      return { kind: "review", attention: "needs-review" };
+    case "INVALID_RECIPIENT":
+    case "RECIPIENT_UNREADABLE":
+      return { kind: "failed", attention: "invalid" };
+    case "MAX_ATTEMPTS_EXHAUSTED":
+      return { kind: "failed", attention: "exhausted" };
+    case "AMBIGUOUS_CORRELATION":
+      return { kind: "note", attention: "ambiguous" };
+    case "INCOMPLETE_CORRECTION":
+      return { kind: "note", attention: "incomplete" };
+    case "WHATSAPP_DISABLED":
+    case "TELEGRAM_DISABLED":
+    case "TELEGRAM_BOT_TOKEN_MISSING":
+    case "TELEGRAM_BOT_USERNAME_MISSING":
+    case "TELEGRAM_KEYS_MISSING":
+    case "TELEGRAM_NOT_LINKED":
+    case "WHATSAPP_PHONE_NUMBER_ID_MISSING":
+    case "WHATSAPP_ACCESS_TOKEN_MISSING":
+    case "WHATSAPP_TEMPLATE_MISSING":
+    case "WHATSAPP_KEYS_MISSING":
+      return { kind: "fallback", attention: "fallback" };
+    case "WHATSAPP_WINDOW_CLOSED":
+    case "WHATSAPP_SANDBOX_UNVERIFIED":
+      return { kind: "fallback", attention: "fallback" };
+    case "CONTACT_UNAVAILABLE":
+      return { kind: "fallback", attention: "uncontactable" };
+    case "CUSTOMER_CONSENT_MISSING":
+      return { kind: "fallback", attention: "no-consent" };
+    default:
+      break;
+  }
+  if (code.startsWith("META_") || code.startsWith("TWILIO_")) {
+    if (event.payload.title === "WhatsApp send failed before delivery") {
+      return { kind: "review", attention: "retryable" };
+    }
+    if (event.payload.title === "WhatsApp request failed") {
+      return { kind: "failed", attention: "failed" };
+    }
+    return { kind: "review", attention: "needs-review" };
+  }
+  if (code.startsWith("TELEGRAM_")) {
+    if (event.payload.title === "Telegram send failed before delivery") {
+      return { kind: "review", attention: "retryable" };
+    }
+    if (event.payload.title === "Telegram request failed") {
+      return { kind: "failed", attention: "failed" };
+    }
+    return { kind: "review", attention: "needs-review" };
+  }
+  return null;
+}
+
+/**
+ * Projects the first `count` recorded events into customer-contact state.
+ * Out-of-order or duplicate observations are safe: lifecycle stages only move
+ * forward by rank, and unrecognized codes never change the picture.
+ */
+export function projectMessaging(events: readonly CaseEvent[], count: number): MessagingState {
+  const applied = Math.max(0, Math.min(count, events.length));
+  const firstSeq: Partial<Record<MessagingMilestoneKey, number>> = {};
+  let lifecycleMax = 0;
+  const state: MessagingState = emptyMessaging();
+  const milestone = (key: MessagingMilestoneKey, rank: number, seq: number, phase: MessagingPhase) => {
+    if (rank < lifecycleMax) return;
+    lifecycleMax = rank;
+    if (firstSeq[key] === undefined) firstSeq[key] = seq;
+    state.phase = phase;
+  };
+  for (let i = 0; i < applied; i++) {
+    const e = events[i];
+    if (e.type === "CUSTOMER_INPUT_REQUIRED") {
+      if (firstSeq.requested === undefined) firstSeq.requested = e.seq;
+      if (state.phase === "idle") state.phase = "waiting";
+      continue;
+    }
+    if (e.type === "CUSTOMER_INPUT_RECEIVED") {
+      milestone("resumed", LIFECYCLE_RANK.resumed, e.seq, "resumed");
+      continue;
+    }
+    if (e.type !== "TOOL_CALLED" || stationOf(e) !== "liaison") continue;
+    const signal = classifyLiaisonTool(e);
+    if (!signal) continue;
+    const code = e.payload.resultCode ?? "";
+    switch (signal.kind) {
+      case "lifecycle":
+        milestone(signal.stage, LIFECYCLE_RANK[signal.stage], e.seq, signal.stage === "claimed" ? "sending" : signal.stage);
+        break;
+      case "failed":
+        state.phase = "failed";
+        state.attention = { kind: signal.attention, seq: e.seq, code };
+        break;
+      case "review":
+        state.phase = "needs-review";
+        state.attention = { kind: signal.attention, seq: e.seq, code };
+        break;
+      case "resolved":
+        state.phase = "waiting";
+        state.attention = null;
+        break;
+      case "fallback":
+        if (state.phase === "idle" || state.phase === "waiting") {
+          state.attention = { kind: signal.attention, seq: e.seq, code };
+        }
+        break;
+      case "note":
+        state.attention = { kind: signal.attention, seq: e.seq, code };
+        break;
+    }
+  }
+  state.active = firstSeq.requested !== undefined;
+  const order: MessagingMilestoneKey[] = ["requested", "claimed", "accepted", "delivered", "read", "validated", "resumed"];
+  state.milestones = order.flatMap((key) => (firstSeq[key] === undefined ? [] : [{ key, seq: firstSeq[key] as number }]));
+  return state;
 }
 
 /**
@@ -65,6 +283,7 @@ export function projectFloor(events: readonly CaseEvent[], count: number): Floor
     verification: null,
     outcome: null,
     task: null,
+    messaging: emptyMessaging(),
   };
 
   // New work on a station clears the previous task's result code, so an old failure never lingers.
@@ -162,6 +381,7 @@ export function projectFloor(events: readonly CaseEvent[], count: number): Floor
   const current = applied > 0 ? events[applied - 1] : null;
   view.current = current;
   view.focus = current ? stationOf(current) : null;
+  view.messaging = projectMessaging(events, applied);
 
   if (current?.taskId) {
     let state: TaskView["state"] = "assigned";
@@ -187,6 +407,14 @@ export function projectFloor(events: readonly CaseEvent[], count: number): Floor
 /** Replay hold per event, in ms at 1x. Longer holds on the beats that matter. */
 export function holdFor(event: CaseEvent, next: CaseEvent | undefined): number {
   const sameInstant = next && next.occurredAt === event.occurredAt;
+  if (event.payload.resultCode === "WHATSAPP_VALIDATED") return 1800;
+  if (
+    event.payload.resultCode === "WHATSAPP_SENT" ||
+    event.payload.resultCode === "WHATSAPP_DELIVERED" ||
+    event.payload.resultCode === "WHATSAPP_READ"
+  ) {
+    return 1400;
+  }
   switch (event.type) {
     case "TOOL_FAILED":
     case "CASE_RESOLVED":

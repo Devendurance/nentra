@@ -47,7 +47,11 @@ import {
   quoteAttempts,
   quoteOptions,
   runs,
+  telegramInboundUpdates,
+  telegramOutboundMessages,
   toolAttempts,
+  whatsappInboundEvents,
+  whatsappMessages,
   type AgentTask,
   type ClaimedJob,
   type CaseRecord,
@@ -88,6 +92,8 @@ export type PublicCaseSnapshot = {
     merchantCeilingNgn: number;
     provider: string | null;
     service: string | null;
+    quoteOptionId: string | null;
+    expiresAt: string | null;
   } | null;
   evidence: PublicEvidence | null;
 };
@@ -228,6 +234,58 @@ function error(status: number, code: string, message: string): HttpError {
   return new HttpError(status, code, message);
 }
 
+async function applyCorrectionTx(
+  tx: RepositoryTransaction,
+  request: { id: string; caseId: string },
+  input: { houseNumber?: string; street?: string; area?: string; landmark?: string },
+): Promise<string> {
+  const row = await lockCase(tx, request.caseId);
+  if (row.status !== "WAITING_CUSTOMER" || !row.activeRunId) {
+    throw error(409, "CASE_NOT_WAITING_FOR_CUSTOMER", "The case is not waiting for this correction.");
+  }
+  const now = new Date();
+  const [order] = await tx.select().from(orders).where(eq(orders.id, row.orderId)).for("update").limit(1);
+  if (!order) throw error(404, "ORDER_NOT_FOUND", "Order was not found.");
+  const address = { ...objectValue(order.addressJson) };
+  const houseNumber = input.houseNumber;
+  const street = input.street;
+  if (houseNumber || street) {
+    const existingStreet = typeof address.addressLine1 === "string" ? address.addressLine1 : "";
+    address.addressLine1 = [houseNumber, street].filter(Boolean).join(" ") || existingStreet;
+  }
+  if (input.area) address.area = input.area;
+  if (input.landmark) address.landmark = input.landmark;
+
+  if (missingDeliveryFields(address).length > 0) {
+    throw error(422, "CORRECTION_INCOMPLETE", "All required delivery details must be present before quote review can resume.");
+  }
+
+  await tx.update(orders).set({ addressJson: address, updatedAt: now }).where(eq(orders.id, order.id));
+  await tx.update(correctionRequests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(correctionRequests.id, request.id));
+  await tx.update(agentTasks).set({ status: "COMPLETED", outputJson: { result: "CUSTOMER_INPUT_RECEIVED" }, finishedAt: now, updatedAt: now })
+    .where(and(eq(agentTasks.runId, row.activeRunId), eq(agentTasks.role, "liaison"), eq(agentTasks.status, "WAITING")));
+  const afterCustomer = await transitionCaseTx(tx, row, {
+    to: "TRIAGING",
+    actor: "customer",
+    type: "CUSTOMER_INPUT_RECEIVED",
+    payload: { title: "Address detail received", summary: "The requested fictional delivery landmark was added.", station: "liaison", nextAction: "Continue quote evaluation" },
+  }, row.activeRunId);
+  await transitionCaseTx(tx, afterCustomer, {
+    to: "QUOTING",
+    actor: "controller",
+    type: "PLAN_CREATED",
+    payload: { title: "Quote review resumed", summary: "The corrected address is ready for eligible shipping quotes.", station: "controller", nextAction: "Request the preferred shipping quote" },
+  }, row.activeRunId);
+  await tx.update(runs).set({ status: "RUNNING", updatedAt: now }).where(eq(runs.id, row.activeRunId));
+  await insertJobTx(tx, {
+    caseId: row.id,
+    runId: row.activeRunId,
+    step: "fulfillment_primary",
+    dedupeKey: `${row.activeRunId}:fulfillment_primary:1`,
+  });
+  return row.id;
+}
+
 export class DemoRepository implements ShippingStore {
   constructor(readonly db: RepositoryDatabase) {}
 
@@ -341,6 +399,8 @@ export class DemoRepository implements ShippingStore {
         merchantCeilingNgn: joined.merchantRecord.maxShippingNgn,
         provider: approval.quote?.provider ?? null,
         service: approval.quote?.service ?? null,
+        quoteOptionId: approval.quote?.id ?? null,
+        expiresAt: approval.quote?.expiresAt ? iso(approval.quote.expiresAt) : null,
       } : null,
       evidence: receipt ? {
         id: receipt.receipt.id,
@@ -505,50 +565,7 @@ export class DemoRepository implements ShippingStore {
         return null;
       }
 
-      const row = await lockCase(tx, request.caseId);
-      if (row.status !== "WAITING_CUSTOMER" || !row.activeRunId) {
-        throw error(409, "CASE_NOT_WAITING_FOR_CUSTOMER", "The case is not waiting for this correction.");
-      }
-      const [order] = await tx.select().from(orders).where(eq(orders.id, row.orderId)).for("update").limit(1);
-      if (!order) throw error(404, "ORDER_NOT_FOUND", "Order was not found.");
-      const address = { ...objectValue(order.addressJson) };
-      const houseNumber = input.houseNumber;
-      const street = input.street;
-      if (houseNumber || street) {
-        const existingStreet = typeof address.addressLine1 === "string" ? address.addressLine1 : "";
-        address.addressLine1 = [houseNumber, street].filter(Boolean).join(" ") || existingStreet;
-      }
-      if (input.area) address.area = input.area;
-      if (input.landmark) address.landmark = input.landmark;
-
-      if (missingDeliveryFields(address).length > 0) {
-        throw error(422, "CORRECTION_INCOMPLETE", "All required delivery details must be present before quote review can resume.");
-      }
-
-      await tx.update(orders).set({ addressJson: address, updatedAt: now }).where(eq(orders.id, order.id));
-      await tx.update(correctionRequests).set({ status: "COMPLETED", completedAt: now, updatedAt: now }).where(eq(correctionRequests.id, request.id));
-      await tx.update(agentTasks).set({ status: "COMPLETED", outputJson: { result: "CUSTOMER_INPUT_RECEIVED" }, finishedAt: now, updatedAt: now })
-        .where(and(eq(agentTasks.runId, row.activeRunId), eq(agentTasks.role, "liaison"), eq(agentTasks.status, "WAITING")));
-      const afterCustomer = await transitionCaseTx(tx, row, {
-        to: "TRIAGING",
-        actor: "customer",
-        type: "CUSTOMER_INPUT_RECEIVED",
-        payload: { title: "Address detail received", summary: "The requested fictional delivery landmark was added.", station: "liaison", nextAction: "Continue quote evaluation" },
-      }, row.activeRunId);
-      await transitionCaseTx(tx, afterCustomer, {
-        to: "QUOTING",
-        actor: "controller",
-        type: "PLAN_CREATED",
-        payload: { title: "Quote review resumed", summary: "The corrected address is ready for eligible shipping quotes.", station: "controller", nextAction: "Request the preferred shipping quote" },
-      }, row.activeRunId);
-      await tx.update(runs).set({ status: "RUNNING", updatedAt: now }).where(eq(runs.id, row.activeRunId));
-      await insertJobTx(tx, {
-        caseId: row.id,
-        runId: row.activeRunId,
-        step: "fulfillment_primary",
-        dedupeKey: `${row.activeRunId}:fulfillment_primary:1`,
-      });
-      return row.id;
+      return applyCorrectionTx(tx, { id: request.id, caseId: request.caseId }, input);
     });
 
     if (!caseId) throw error(403, "CORRECTION_TOKEN_EXPIRED", "The correction token has expired.");
@@ -558,12 +575,208 @@ export class DemoRepository implements ShippingStore {
     return snapshot;
   }
 
+  async applyWhatsappCorrectionByRequestId(
+    requestId: string,
+    rawInput: unknown,
+  ): Promise<{ outcome: "APPLIED" | "EXPIRED" | "ALREADY_RESOLVED"; caseId: string | null }> {
+    const input = correctionInputSchema.parse(rawInput);
+    return this.transaction(async (tx) => {
+      const [request] = await tx.select().from(correctionRequests)
+        .where(eq(correctionRequests.id, requestId)).for("update").limit(1);
+      if (!request || request.status !== "PENDING") {
+        return { outcome: "ALREADY_RESOLVED" as const, caseId: request?.caseId ?? null };
+      }
+      const now = new Date();
+      if (request.expiresAt.getTime() <= now.getTime()) {
+        await tx.update(correctionRequests).set({ status: "EXPIRED", updatedAt: now }).where(eq(correctionRequests.id, request.id));
+        return { outcome: "EXPIRED" as const, caseId: request.caseId };
+      }
+      const caseId = await applyCorrectionTx(tx, { id: request.id, caseId: request.caseId }, input);
+      return { outcome: "APPLIED" as const, caseId };
+    });
+  }
+
+  async getPendingCorrectionsForOrder(orderId: string) {
+    return this.db.select({
+      requestId: correctionRequests.id,
+      caseId: correctionRequests.caseId,
+      activeRunId: cases.activeRunId,
+      expiresAt: correctionRequests.expiresAt,
+      caseStatus: cases.status,
+    }).from(correctionRequests)
+      .innerJoin(cases, eq(cases.id, correctionRequests.caseId))
+      .where(and(eq(cases.orderId, orderId), eq(correctionRequests.status, "PENDING")));
+  }
+
+  async recordInboundEvent(input: {
+    providerMessageId: string;
+    provider?: string;
+    kind: "MESSAGE" | "STATUS";
+    statusValue?: string;
+    senderLookupHash?: string | null;
+    resultCode?: string;
+  }) {
+    const [existing] = await this.db.select().from(whatsappInboundEvents)
+      .where(eq(whatsappInboundEvents.providerMessageId, input.providerMessageId)).limit(1);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(whatsappInboundEvents).values({
+        providerMessageId: input.providerMessageId,
+        provider: input.provider ?? "meta",
+        kind: input.kind,
+        statusValue: input.statusValue ?? null,
+        senderLookupHash: input.senderLookupHash ?? null,
+        resultCode: input.resultCode ?? "RECEIVED",
+      }).returning();
+      if (!record) throw new Error("Could not record inbound event");
+      return { record, created: true };
+    } catch {
+      const [raced] = await this.db.select().from(whatsappInboundEvents)
+        .where(eq(whatsappInboundEvents.providerMessageId, input.providerMessageId)).limit(1);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record inbound event");
+    }
+  }
+
+  async updateInboundEventResult(
+    id: string,
+    patch: { resultCode: string; caseId?: string | null; correctionRequestId?: string | null; statusValue?: string | null },
+  ) {
+    const [record] = await this.db.update(whatsappInboundEvents).set({
+      resultCode: patch.resultCode,
+      caseId: patch.caseId ?? null,
+      correctionRequestId: patch.correctionRequestId ?? null,
+      statusValue: patch.statusValue ?? null,
+      updatedAt: new Date(),
+    }).where(eq(whatsappInboundEvents.id, id)).returning();
+    if (!record) throw error(404, "WHATSAPP_INBOUND_NOT_FOUND", "The inbound event was not found.");
+    return record;
+  }
+
+  async getWhatsappMessageByProviderId(providerMessageId: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.providerMessageId, providerMessageId)).limit(1);
+    return row ?? null;
+  }
+
+  async getWhatsappMessageByProviderSid(provider: string, providerMessageId: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(and(
+        eq(whatsappMessages.provider, provider),
+        eq(whatsappMessages.providerMessageId, providerMessageId),
+      )).limit(1);
+    return row ?? null;
+  }
+
+  async hasInboundFromSenderHash(senderLookupHash: string, provider = "twilio"): Promise<boolean> {
+    const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
+      .where(and(
+        eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.provider, provider),
+        eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
+      )).limit(1);
+    return !!row;
+  }
+
+  async hasRecentInboundFromSenderHash(senderLookupHash: string, since: Date, provider = "twilio"): Promise<boolean> {
+    const [row] = await this.db.select({ id: whatsappInboundEvents.id }).from(whatsappInboundEvents)
+      .where(and(
+        eq(whatsappInboundEvents.kind, "MESSAGE"),
+        eq(whatsappInboundEvents.provider, provider),
+        eq(whatsappInboundEvents.senderLookupHash, senderLookupHash),
+        gte(whatsappInboundEvents.createdAt, since),
+      )).limit(1);
+    return !!row;
+  }
+
+  async updateWhatsappMessageFromStatus(
+    providerMessageId: string,
+    next: "SENT" | "DELIVERED" | "READ" | "FAILED",
+    provider = "meta",
+  ) {
+    const [current] = await this.db.select({ id: whatsappMessages.id }).from(whatsappMessages)
+      .where(and(
+        eq(whatsappMessages.provider, provider),
+        eq(whatsappMessages.providerMessageId, providerMessageId),
+      )).limit(1);
+    if (!current) return { applied: false as const, message: null };
+    const allowedFrom =
+      next === "READ"
+        ? ["SENT", "DELIVERED", "NEEDS_REVIEW"]
+        : next === "SENT"
+          ? ["NEEDS_REVIEW"]
+          : ["PENDING", "SENT", "NEEDS_REVIEW"];
+    const [updated] = await this.db.update(whatsappMessages).set({
+      status: next,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, current.id),
+      inArray(whatsappMessages.status, allowedFrom as Array<"PENDING" | "SENT" | "DELIVERED" | "NEEDS_REVIEW">),
+    )).returning();
+    if (!updated) {
+      const [latest] = await this.db.select().from(whatsappMessages)
+        .where(eq(whatsappMessages.id, current.id)).limit(1);
+      return { applied: false as const, message: latest ?? null };
+    }
+    return { applied: true as const, message: updated };
+  }
+
+  async claimWhatsappSend(messageId: string) {
+    const [claimed] = await this.db.update(whatsappMessages).set({
+      status: "SENDING",
+      attemptCount: sql`${whatsappMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      inArray(whatsappMessages.status, ["PENDING", "RETRYABLE"]),
+    )).returning();
+    return claimed ?? null;
+  }
+
+  async finalizeWhatsappSend(
+    messageId: string,
+    result: {
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: result.status,
+      providerMessageId: result.providerMessageId ?? null,
+      errorCode: result.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      eq(whatsappMessages.status, "SENDING"),
+    )).returning();
+    if (!record) throw error(409, "WHATSAPP_SEND_NOT_CLAIMED", "The WhatsApp send is no longer owned by this worker.");
+    return record;
+  }
+
+  async resolveWhatsappNeedsReview(
+    messageId: string,
+    resolution: { to: "PENDING" | "SENT"; providerMessageId?: string; errorCode?: string },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: resolution.to,
+      providerMessageId: resolution.providerMessageId ?? null,
+      errorCode: resolution.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(whatsappMessages.id, messageId),
+      eq(whatsappMessages.status, "NEEDS_REVIEW"),
+    )).returning();
+    if (!record) throw error(409, "WHATSAPP_NOT_AWAITING_REVIEW", "The WhatsApp message is not awaiting review.");
+    return record;
+  }
+
   async decideApproval(
     caseId: string,
     approvalId: string,
     input: { decision: "approve" | "reject"; reason?: string; expectedVersion?: number },
   ): Promise<PublicCaseSnapshot> {
-    await this.transaction(async (tx) => {
+    const quoteExpired = await this.transaction(async (tx) => {
       const row = await lockCase(tx, caseId);
       checkExpectedVersion(row, input.expectedVersion);
       if (row.status !== "WAITING_APPROVAL" || !row.activeRunId) {
@@ -576,6 +789,36 @@ export class DemoRepository implements ShippingStore {
       if (approval.status !== "PENDING") throw error(409, "APPROVAL_ALREADY_REVIEWED", "This approval was already reviewed.");
       const now = new Date();
       const approved = input.decision === "approve";
+      if (approved) {
+        const [boundQuote] = approval.quoteOptionId
+          ? await tx.select().from(quoteOptions).where(eq(quoteOptions.id, approval.quoteOptionId)).limit(1)
+          : [];
+        const quoteStale = !boundQuote
+          || !boundQuote.eligible
+          || boundQuote.amountNgn !== approval.requestedCostNgn
+          || (boundQuote.expiresAt !== null && boundQuote.expiresAt.getTime() <= now.getTime());
+        if (quoteStale) {
+          await tx.update(approvals).set({
+            status: "EXPIRED",
+            reviewedBy: "quote-expiry-guard",
+            reviewedAt: now,
+            updatedAt: now,
+          }).where(eq(approvals.id, approvalId));
+          await appendEventTx(tx, {
+            caseId,
+            runId: row.activeRunId,
+            type: "TOOL_CALLED",
+            actor: "controller",
+            payload: {
+              title: "Expired quote cannot be approved",
+              summary: "The bound shipping quote expired or no longer matches the approval, so the approval was marked expired. Refresh the quote for a new exact-quote approval.",
+              station: "controller",
+              resultCode: "QUOTE_EXPIRED",
+            },
+          });
+          return true;
+        }
+      }
       await tx.update(approvals).set({
         status: approved ? "APPROVED" : "REJECTED",
         reviewedBy: "demo-operator",
@@ -607,6 +850,112 @@ export class DemoRepository implements ShippingStore {
         }, row.activeRunId);
         await tx.update(runs).set({ status: "FAILED", finishedAt: now, updatedAt: now }).where(eq(runs.id, row.activeRunId));
       }
+      return false;
+    });
+    if (quoteExpired) {
+      throw error(409, "QUOTE_EXPIRED", "The bound shipping quote has expired. Refresh the quote before approving.");
+    }
+
+    const snapshot = await this.getCaseSnapshot(caseId);
+    if (!snapshot) throw error(404, "CASE_NOT_FOUND", "Case was not found.");
+    return snapshot;
+  }
+
+  async refreshApprovalQuote(
+    caseId: string,
+    input: {
+      expectedVersion?: number;
+      requestQuote: (route: "PREFERRED" | "ALTERNATIVE") => Promise<{
+        id: string;
+        providerCode: string;
+        serviceCode: string;
+        amountNgn: number;
+        expiresAt: string;
+      }>;
+    },
+  ): Promise<PublicCaseSnapshot> {
+    const precheck = await this.getCaseSnapshot(caseId);
+    if (!precheck || precheck.status !== "WAITING_APPROVAL" || !precheck.run || !precheck.pendingApproval) {
+      throw error(409, "CASE_NOT_WAITING_FOR_APPROVAL", "The case is not waiting for merchant approval.");
+    }
+    const oldApprovalId = precheck.pendingApproval.id;
+    const [oldQuote] = precheck.pendingApproval.quoteOptionId
+      ? await this.db.select().from(quoteOptions).where(eq(quoteOptions.id, precheck.pendingApproval.quoteOptionId)).limit(1)
+      : [];
+    if (!oldQuote || oldQuote.expiresAt === null || oldQuote.expiresAt.getTime() > Date.now()) {
+      throw error(409, "QUOTE_STILL_VALID", "The pending quote has not expired; refresh is not needed.");
+    }
+    const route = oldQuote.provider === "GIG_LOGISTICS" ? "PREFERRED" : "ALTERNATIVE";
+    const fresh = await input.requestQuote(route);
+    if (!fresh.id || fresh.expiresAt === undefined || Date.parse(fresh.expiresAt) <= Date.now()) {
+      throw error(502, "QUOTE_REFRESH_FAILED", "The replacement shipping quote was not usable.");
+    }
+
+    await this.transaction(async (tx) => {
+      const row = await lockCase(tx, caseId);
+      checkExpectedVersion(row, input.expectedVersion);
+      if (row.status !== "WAITING_APPROVAL" || !row.activeRunId) {
+        throw error(409, "CASE_NOT_WAITING_FOR_APPROVAL", "The case is not waiting for merchant approval.");
+      }
+      const [pending] = await tx.select().from(approvals)
+        .where(and(eq(approvals.caseId, caseId), eq(approvals.status, "PENDING")))
+        .for("update").limit(1);
+      if (!pending || pending.id !== oldApprovalId) {
+        throw error(409, "APPROVAL_SUPERSEDED", "The approval was already refreshed or reviewed by another request.");
+      }
+      const now = new Date();
+      await tx.update(approvals).set({
+        status: "EXPIRED",
+        reviewedBy: "quote-refresh",
+        reviewedAt: now,
+        updatedAt: now,
+      }).where(eq(approvals.id, pending.id));
+      const [attemptRow] = await tx.select({ attempt: max(quoteAttempts.attempt) }).from(quoteAttempts)
+        .where(and(eq(quoteAttempts.caseId, caseId), eq(quoteAttempts.route, route)));
+      await tx.insert(quoteAttempts).values({
+        caseId,
+        runId: row.activeRunId,
+        taskId: null,
+        route,
+        provider: fresh.providerCode,
+        attempt: (attemptRow?.attempt ?? 0) + 1,
+        status: "SUCCEEDED",
+        resultCode: "QUOTE_REFRESHED",
+        finishedAt: now,
+      });
+      await tx.insert(approvals).values({
+        caseId,
+        quoteOptionId: fresh.id,
+        proposalHash: approvalProposalHash(caseId, fresh.id, fresh.providerCode, fresh.serviceCode, fresh.amountNgn),
+        requestedCostNgn: fresh.amountNgn,
+        status: "PENDING",
+      });
+      await appendEventTx(tx, {
+        caseId,
+        runId: row.activeRunId,
+        type: "TOOL_CALLED",
+        actor: "controller",
+        payload: {
+          title: "Expired approval superseded",
+          summary: `The expired ${oldQuote.amountNgn.toLocaleString("en-NG")} NGN quote approval was marked expired and replaced with a fresh exact quote.`,
+          station: "controller",
+          resultCode: "APPROVAL_SUPERSEDED",
+        },
+      });
+      const aboveCeiling = fresh.amountNgn > (precheck?.merchant.maxShippingNgn ?? 0);
+      await appendEventTx(tx, {
+        caseId,
+        runId: row.activeRunId,
+        type: "APPROVAL_REQUIRED",
+        actor: "controller",
+        payload: {
+          title: "Merchant approval required",
+          summary: `The refreshed quote is ${fresh.amountNgn.toLocaleString("en-NG")} NGN from ${fresh.providerCode}.`,
+          station: "controller",
+          resultCode: aboveCeiling ? "COST_LIMIT" : "QUOTE_REFRESHED",
+          nextAction: "Approve or decline this exact quote",
+        },
+      });
     });
 
     const snapshot = await this.getCaseSnapshot(caseId);
@@ -1090,6 +1439,182 @@ export class DemoRepository implements ShippingStore {
     return row ?? null;
   }
 
+  async getWhatsappMessageByIdempotencyKey(idempotencyKey: string) {
+    const [row] = await this.db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.idempotencyKey, idempotencyKey)).limit(1);
+    return row ?? null;
+  }
+
+  async insertWhatsappMessagePending(input: {
+    caseId: string;
+    correctionRequestId: string;
+    idempotencyKey: string;
+    provider?: string;
+    templateName: string;
+    templateLanguage: string;
+    recipientHash: string;
+  }) {
+    const existing = await this.getWhatsappMessageByIdempotencyKey(input.idempotencyKey);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(whatsappMessages).values({
+        caseId: input.caseId,
+        correctionRequestId: input.correctionRequestId,
+        idempotencyKey: input.idempotencyKey,
+        provider: input.provider ?? "meta",
+        templateName: input.templateName,
+        templateLanguage: input.templateLanguage,
+        recipientHash: input.recipientHash,
+        status: "PENDING",
+        attemptCount: 0,
+      }).returning();
+      if (!record) throw new Error("Could not record WhatsApp message");
+      return { record, created: true };
+    } catch {
+      const raced = await this.getWhatsappMessageByIdempotencyKey(input.idempotencyKey);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record WhatsApp message");
+    }
+  }
+
+  async resetSkippedWhatsappMessage(idempotencyKey: string): Promise<boolean> {
+    return this.transaction(async (tx) => {
+      const deleted = await tx.delete(whatsappMessages).where(and(
+        eq(whatsappMessages.idempotencyKey, idempotencyKey),
+        eq(whatsappMessages.status, "SKIPPED"),
+      )).returning({ id: whatsappMessages.id });
+      return deleted.length > 0;
+    });
+  }
+
+  async updateWhatsappMessageStatus(
+    id: string,
+    patch: {
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW" | "SKIPPED";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(whatsappMessages).set({
+      status: patch.status,
+      providerMessageId: patch.providerMessageId ?? null,
+      errorCode: patch.errorCode ?? null,
+      attemptCount: sql`${whatsappMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(whatsappMessages.id, id)).returning();
+    if (!record) throw error(404, "WHATSAPP_MESSAGE_NOT_FOUND", "The WhatsApp message was not found.");
+    return record;
+  }
+
+  async recordTelegramUpdate(input: { updateId: string; chatLookupHash?: string | null }) {
+    const [existing] = await this.db.select().from(telegramInboundUpdates)
+      .where(eq(telegramInboundUpdates.updateId, input.updateId)).limit(1);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(telegramInboundUpdates).values({
+        updateId: input.updateId,
+        chatLookupHash: input.chatLookupHash ?? null,
+        resultCode: "RECEIVED",
+      }).returning();
+      if (!record) throw new Error("Could not record Telegram update");
+      return { record, created: true };
+    } catch {
+      const [raced] = await this.db.select().from(telegramInboundUpdates)
+        .where(eq(telegramInboundUpdates.updateId, input.updateId)).limit(1);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record Telegram update");
+    }
+  }
+
+  async updateTelegramUpdateResult(
+    id: string,
+    patch: { resultCode: string; caseId?: string | null; correctionRequestId?: string | null },
+  ) {
+    const [record] = await this.db.update(telegramInboundUpdates).set({
+      resultCode: patch.resultCode,
+      caseId: patch.caseId ?? null,
+      correctionRequestId: patch.correctionRequestId ?? null,
+      updatedAt: new Date(),
+    }).where(eq(telegramInboundUpdates.id, id)).returning();
+    if (!record) throw error(404, "TELEGRAM_UPDATE_NOT_FOUND", "The Telegram update was not found.");
+    return record;
+  }
+
+  async getTelegramMessageByIdempotencyKey(idempotencyKey: string) {
+    const [row] = await this.db.select().from(telegramOutboundMessages)
+      .where(eq(telegramOutboundMessages.idempotencyKey, idempotencyKey)).limit(1);
+    return row ?? null;
+  }
+
+  async insertTelegramMessagePending(input: {
+    caseId: string;
+    correctionRequestId: string;
+    idempotencyKey: string;
+    recipientHash: string;
+  }) {
+    const existing = await this.getTelegramMessageByIdempotencyKey(input.idempotencyKey);
+    if (existing) return { record: existing, created: false };
+    try {
+      const [record] = await this.db.insert(telegramOutboundMessages).values({
+        caseId: input.caseId,
+        correctionRequestId: input.correctionRequestId,
+        idempotencyKey: input.idempotencyKey,
+        recipientHash: input.recipientHash,
+        status: "PENDING",
+        attemptCount: 0,
+      }).returning();
+      if (!record) throw new Error("Could not record Telegram message");
+      return { record, created: true };
+    } catch {
+      const raced = await this.getTelegramMessageByIdempotencyKey(input.idempotencyKey);
+      if (raced) return { record: raced, created: false };
+      throw new Error("Could not record Telegram message");
+    }
+  }
+
+  async claimTelegramSend(messageId: string) {
+    const [claimed] = await this.db.update(telegramOutboundMessages).set({
+      status: "SENDING",
+      attemptCount: sql`${telegramOutboundMessages.attemptCount} + 1`,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(telegramOutboundMessages.id, messageId),
+      inArray(telegramOutboundMessages.status, ["PENDING", "RETRYABLE"]),
+    )).returning();
+    return claimed ?? null;
+  }
+
+  async finalizeTelegramSend(
+    messageId: string,
+    result: {
+      status: "SENT" | "FAILED" | "RETRYABLE" | "NEEDS_REVIEW";
+      providerMessageId?: string;
+      errorCode?: string;
+    },
+  ) {
+    const [record] = await this.db.update(telegramOutboundMessages).set({
+      status: result.status,
+      providerMessageId: result.providerMessageId ?? null,
+      errorCode: result.errorCode ?? null,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(telegramOutboundMessages.id, messageId),
+      eq(telegramOutboundMessages.status, "SENDING"),
+    )).returning();
+    if (!record) throw error(409, "TELEGRAM_SEND_NOT_CLAIMED", "The Telegram send is no longer owned by this worker.");
+    return record;
+  }
+
+  async resetSkippedTelegramMessage(idempotencyKey: string): Promise<boolean> {
+    return this.transaction(async (tx) => {
+      const deleted = await tx.delete(telegramOutboundMessages).where(and(
+        eq(telegramOutboundMessages.idempotencyKey, idempotencyKey),
+        eq(telegramOutboundMessages.status, "SKIPPED"),
+      )).returning({ id: telegramOutboundMessages.id });
+      return deleted.length > 0;
+    });
+  }
+
   async updateBookingOutcome(input: {
     bookingIntentId: string;
     bookingId: string;
@@ -1474,6 +1999,10 @@ function checkExpectedVersion(row: CaseRecord, expectedVersion?: number): void {
   if (expectedVersion !== undefined && row.version !== expectedVersion) {
     throw error(409, "CASE_VERSION_CONFLICT", "The case changed before this action was accepted.");
   }
+}
+
+function approvalProposalHash(caseId: string, quoteId: string, provider: string, service: string, amountNgn: number): string {
+  return createHash("sha256").update(`${caseId}|${quoteId}|${provider}|${service}|${amountNgn}|NGN`).digest("hex");
 }
 
 function toPublicEvent(row: CaseEventRecord): PublicCaseEvent {

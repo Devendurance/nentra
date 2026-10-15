@@ -1,14 +1,29 @@
 # Left Off
 
-- Doing: landing sections 02 to 04 on branch `frontend/landing-sections-02-04`, PR open and waiting for the user's visual approval. Do not merge before approval.
+- Doing: production release of `feat/whatsapp-customer-liaison` (local head 15b7cf0, pushed). STOPPED at the hard release gate: EC2 worker identity, SSH/service access, and production backup are unverified from here. No production migration, no main merge. Do not merge before approval.
 - Done:
-  - Section 02: pinned walkthrough of the recorded run (`Walkthrough`, `PhoneScreen`, `recorded/beats.ts`), GSAP ScrollTrigger on desktop only, stacked on mobile and reduced motion.
-  - Section 03: five stacked story scenes with one aperture transition (`StoryStack`), proof bento from real API data (`ProofBento`), existing `RecoveryLoop` kept as the general loop (`#loop`).
-  - Section 04: closing CTA and monumental footer (`Closing.tsx`).
-  - Fixes found in the browser: Back from `/app` after clicking an in-page anchor left the floor on screen with the landing unreachable (now `HashNavigation`), and the intro overlay didn't replay on a client-side return because Next keeps the route alive (Intro now resets on re-entry).
-  - Verified on the production build: pin, unpin, reverse, keyboard index and pager, refresh, back navigation, API failure and empty states, reduced motion, no overflow at 375/390/768/1280/1440, no non-GET requests, no secrets in the client bundle. 120/120 tests.
-- Next: wait for visual approval, then merge. Later slices: live workflow controls, customer correction and approval (need operator auth).
+  - P6.2: customer_contacts (HMAC-SHA256 lookup, AES-256-GCM number, OPTED_IN/OPTED_OUT with provenance) plus internal operator provisioning, no public route.
+  - P6.2: verified webhook route (GET challenge, POST HMAC-SHA256 over raw bytes, constant-time compare), deduped inbound events, delivered/read/failed status recording with monotonic guard.
+  - P6.2: reply-context plus single-candidate correlation, `landmark:` constrained replies through the shared correction core, same-run resumption to RESOLVED with one booking, token endpoint untouched.
+  - Verified: 9/9 new inbound tests plus 5/5 P6.1 tests, type-check, lint, production build clean.
+- Done:
+  - P6.3: atomic send claims plus trusted-contact sending, SENT/RETRYABLE/FAILED/NEEDS_REVIEW classification with manual resolution, per-notification status dedupe with monotonic updates, worker liaison wiring gated on WHATSAPP_ENABLED, full suite 144/144 green.
+- Done:
+  - P6.4: messaging projection plus Customer contact panel and liaison envelope states, replay-safe, provider-neutral, verified in browser at 375/768/1280/1440 with reduced motion, full suite 154/154 green.
+- Done:
+  - P6.5A: Twilio sandbox provider alongside Meta (provider routing, SDK sends, window gates, signed inbound plus status callbacks, provider-scoped dedupe), full suite 168/168 green. No live sends.
+- Done:
+  - P6.5B readiness: stale-skip unblock fix with regression tests, route enforcement proven locally. Fix verified intact (unblock test green in 15/15).
+- Done:
+  - P6.5C: Twilio 24h window/sandbox evidence now requires provider=twilio (repository + outbound), regression test 15/15 twilio + 40/40 whatsapp green, tsc + eslint clean. Committed 0321b0c, push blocked (no github.com egress). Staging DB migration + live send stay behind the authorization gate.
+- Done:
+  - 21654 diagnosis (no send, no retry): request construction exonerated via mocked-transport proof; Twilio-side discrepancy; FAILED record preserved. Temp scripts deleted.
+- Done:
+  - P7.1 approval slice: Merchant Approval panel on the Floor plus authenticated refresh endpoint issuing a genuinely new persisted sandbox quote and exact-quote approval on the same run, decideApproval rejects expired or mismatched quotes transactionally. 6/6 approval + 25/25 integration/floor + 16/16 telegram/approval green, tsc + lint clean, production build verified.
+- Next: user refreshes the expired REDSTAR quote and approves the fresh exact quote from the Floor panel on staging.
+- Done:
+  - P7 Telegram slice: Bot API sendMessage, signed POST /api/telegram/webhook, single-use hashed binding tokens with atomic /start linking and explicit Telegram-only consent, telegram_contacts/inbound_updates/outbound_messages (migration 0007 applied to staging, NG-2048 intact), provider-scoped telegram idempotency, shared landmark-correction core reused by both channels, coordinator liaison hook behind TELEGRAM_ENABLED, floor TELEGRAM_* states without delivery receipts. 10/10 telegram + 40/40 whatsapp + 13/13 floor tests green, tsc + lint clean.
 - Known issues:
-  - Neon reads from this machine take 5 to 14s each and the public API sometimes returns 500, so the recorded panels can take 25 to 75s to fill. They show loading and retry states meanwhile.
-  - Next prefetches `/app`'s stylesheet from the landing's `/app` links, which logs a harmless "preloaded but not used" warning.
-  - A browser refresh lands near the top (the intro replays) rather than restoring a mid-page position.
+  - WHATSAPP_API_VERSION default must be confirmed against current Meta docs before P6.5 sandbox verification.
+  - No real WhatsApp delivery tested. Production sending stays disabled.
+  - Landing sections 02-04 work merged via PR #5. Recorded NG-2048 case untouched.

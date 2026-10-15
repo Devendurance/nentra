@@ -567,6 +567,15 @@
 .envelope.is-waiting rect { fill: rgba(245, 181, 97, 0.22); stroke: var(--gold); }
 .envelope.is-waiting path { stroke: var(--gold); }
 .envelope.is-waiting { animation: ring-pulse 1.6s ease-in-out infinite; }
+.envelope.is-sending rect { fill: rgba(245, 181, 97, 0.22); stroke: var(--gold); }
+.envelope.is-sending path { stroke: var(--gold); }
+.envelope.is-sending { animation: ring-pulse 1.1s ease-in-out infinite; }
+.envelope.is-sent rect { fill: rgba(246, 238, 220, 0.14); stroke: var(--cream); }
+.envelope.is-sent path { stroke: var(--cream); }
+.envelope.is-failed rect { fill: rgba(228, 96, 74, 0.2); stroke: var(--failed); }
+.envelope.is-failed path { stroke: var(--failed); }
+.envelope.is-review rect { fill: rgba(245, 181, 97, 0.12); stroke: var(--gold); stroke-dasharray: 3 2; }
+.envelope.is-review path { stroke: var(--gold); }
 .envelope.is-done rect,
 .envelope.is-done path { stroke: var(--cream); }
 
@@ -1095,4 +1104,62 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+.msg-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--cream-80);
+  border: 1px solid var(--hairline);
+  background: rgba(246, 238, 220, 0.03);
+}
+.msg-status.is-accepted,
+.msg-status.is-delivered,
+.msg-status.is-read,
+.msg-status.is-validated,
+.msg-status.is-resumed { border-color: color-mix(in srgb, var(--tone-verified) 40%, transparent); }
+.msg-status.is-failed { border-color: color-mix(in srgb, var(--tone-failed) 45%, transparent); }
+.msg-status.is-sending,
+.msg-status.is-needs-review { border-color: color-mix(in srgb, var(--tone-waiting) 45%, transparent); }
+
+.msg-attention {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--cream-80);
+}
+
+.msg-steps {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  list-style: none;
+  padding: 0;
+}
+.msg-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 19px;
+}
+.msg-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--cream-35);
+  transform: translateY(-1px);
+}
+.msg-step.is-done .msg-dot,
+.msg-step.is-current .msg-dot { background: var(--gold); }
+.msg-step.is-current .msg-label { color: var(--cream); font-weight: 600; }
+.msg-step.is-upcoming { color: var(--cream-55); }
+.msg-step .ref { margin-left: auto; }
+
+@media (max-width: 720px) {
+  .msg-status { font-size: 13px; }
 }

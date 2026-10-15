@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import type { FloorProjection, Party, StationStatus } from "./projection";
+import type { FloorProjection, MessagingPhase, Party, StationStatus } from "./projection";
 import { STATION_NAMES, STATIONS, type StationId } from "./types";
 
 type Pt = readonly [number, number];
@@ -147,7 +147,7 @@ function Accessory({ id, trim, body }: { id: StationId; trim: string; body: stri
 }
 
 /** Role-specific station furniture. States only come from the projected event status. */
-function Props({ id, status, code }: { id: StationId; status: StationStatus; code: string | null }) {
+function Props({ id, status, code, phase }: { id: StationId; status: StationStatus; code: string | null; phase: MessagingPhase }) {
   const [cx, cy] = POS[id];
   const desk = { top: "#2E2418", left: "#211A11", right: "#17120C" };
   const lit = status === "working" || status === "assigned";
@@ -172,17 +172,27 @@ function Props({ id, status, code }: { id: StationId; status: StationStatus; cod
           <circle cx={cx + 30} cy={cy - 30} r={7} className={`lens${lit ? " is-on" : ""}`} />
         </g>
       );
-    case "liaison":
+    case "liaison": {
+      const envelope =
+        phase === "sending" ? "is-sending"
+        : phase === "accepted" || phase === "delivered" || phase === "read" ? "is-sent"
+        : phase === "validated" || phase === "resumed" ? "is-done"
+        : phase === "failed" ? "is-failed"
+        : phase === "needs-review" ? "is-review"
+        : status === "waiting" ? "is-waiting"
+        : status === "done" ? "is-done"
+        : "";
       return (
         <g>
           <Box c={[cx + 24, cy - 10]} a={50} b={32} h={18} {...desk} />
           <Box c={[cx + 30, cy - 34]} a={30} b={6} h={22} top="#1B160F" left="#0D0B07" right="#0D0B07" />
-          <g className={`envelope${status === "waiting" ? " is-waiting" : ""}${status === "done" ? " is-done" : ""}`}>
+          <g className={`envelope ${envelope}`}>
             <rect x={cx + 18} y={cy - 56} width={22} height={14} rx={2} />
             <path d={`M ${cx + 18} ${cy - 56} l 11 8 l 11 -8`} fill="none" strokeWidth={1.4} />
           </g>
         </g>
       );
+    }
     case "fulfillment": {
       const failed = status === "failed";
       return (
@@ -361,7 +371,7 @@ export function FloorStage({ view, reduce }: { view: FloorProjection; reduce: bo
               <polygon points={diamond([cx, cy + 6], 116, 67)} className="station-ring" />
               <Box c={[cx, cy]} a={112} b={112} h={14} top="#231B12" left="#19130D" right="#110D08" className="platform" />
               <polygon points={diamond([cx, cy], 97, 56)} className="platform-tint" />
-              <Props id={id} status={s.status} code={s.resultCode} />
+              <Props id={id} status={s.status} code={s.resultCode} phase={view.messaging.phase} />
               <Agent
                 key={`${id}-${handoff?.to === id ? handoff.seq : "r"}`}
                 id={id}

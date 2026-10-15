@@ -1,5 +1,7 @@
 import { BadgeCheck, CircleAlert, CircleDashed, Route, ShieldCheck, Stamp } from "lucide-react";
 
+import { MessagingPanel } from "./MessagingPanel";
+
 import type { FloorProjection } from "./projection";
 import { stationOf } from "./projection";
 import {
@@ -172,6 +174,8 @@ export function DecisionRail({
           />
         </ul>
       </section>
+
+      <MessagingPanel messaging={view.messaging} />
     </aside>
   );
 }
