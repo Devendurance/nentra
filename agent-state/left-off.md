@@ -1,6 +1,6 @@
 # Left Off
 
-- Doing: production release COMPLETE at main `a1c6c35`. EC2 verified (aws-hermes), worker paused, migrations 0002-0007 applied (8 rows), main merged + pushed, EC2 on release SHA with gates false, worker resumed and idle, production records intact, usenentra serving release code. Remaining owner actions: Vercel production env names + dedicated Telegram bot decision.
+- Doing: production Telegram webhook cutover COMPLETE. Same bot now delivers to usenentra; staging keeps history but receives no updates. Both messaging gates stay false; no sends, no tokens created. EC2 verified (aws-hermes), worker paused, migrations 0002-0007 applied (8 rows), main merged + pushed, EC2 on release SHA with gates false, worker resumed and idle, production records intact, usenentra serving release code. Remaining owner actions: Vercel production env names + dedicated Telegram bot decision.
 - Done:
   - P6.2: customer_contacts (HMAC-SHA256 lookup, AES-256-GCM number, OPTED_IN/OPTED_OUT with provenance) plus internal operator provisioning, no public route.
   - P6.2: verified webhook route (GET challenge, POST HMAC-SHA256 over raw bytes, constant-time compare), deduped inbound events, delivered/read/failed status recording with monotonic guard.
